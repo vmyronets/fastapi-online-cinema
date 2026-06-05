@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "fastapi-online-cinema"
+version = "0.1.0"
+description = "FastAPI Online Cinema - A comprehensive movie streaming platform with authentication, shopping cart, orders, and payments."
+authors = ["Volodymyr Myronets <volodymyrmyronets@gmail.com>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = {extras = ["standard"], version = "^0.115.0"}
+uvicorn = {extras = ["standard"], version = "^0.34.0"}
+sqlalchemy = {extras = ["asyncio"], version = "^2.0.36"}
+asyncpg = "^0.30.0"
+alembic = "^1.14.0"
+pydantic = {extras = ["email"], version = "^2.0.0"}
+pydantic-settings = "^2.7.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+
