@@ -16,6 +16,10 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from src.accounts.models.user_group import UserGroupModel
+    from src.accounts.models.user_profile import UserProfileModel
+    from src.accounts.models.activation_token import ActivationTokenModel
+    from src.accounts.models.password_reset_token import PasswordResetTokenModel
+    from src.accounts.models.refresh_token import RefreshTokenModel
 
 
 class UserModel(Base):
