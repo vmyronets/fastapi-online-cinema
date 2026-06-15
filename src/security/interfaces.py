@@ -1,8 +1,8 @@
 """
 Abstract interfaces for security components.
 
-Defines contracts for JWT authentication management, enabling
-dependency injection and easy testing with mock implementations.
+Defines contracts for JWT authentication management and S3 storage,
+enabling dependency injection and easy testing with mock implementations.
 """
 
 from abc import ABC, abstractmethod
@@ -72,5 +72,41 @@ class JWTAuthManagerInterface(ABC):
 
         Raises:
             BaseSecurityError: If the token is invalid or expired.
+        """
+        ...
+
+
+class S3StorageInterface(ABC):
+    """
+    Interface for S3-compatible object storage operations.
+
+    Implementations must provide methods for uploading files
+    and generating pre-signed URLs for file access.
+    """
+
+    @abstractmethod
+    async def upload_file(self, file_name: str, file_data: bytes) -> None:
+        """
+        Upload a file to S3 storage.
+
+        Args:
+            file_name: The key/path for the file in the bucket.
+            file_data: The raw file bytes to upload.
+
+        Raises:
+            S3FileUploadError: If the upload fails.
+        """
+        ...
+
+    @abstractmethod
+    async def get_file_url(self, file_name: str) -> str:
+        """
+        Generate a pre-signed URL for accessing a file.
+
+        Args:
+            file_name: The key/path of the file in the bucket.
+
+        Returns:
+            str: A pre-signed URL for the file.
         """
         ...

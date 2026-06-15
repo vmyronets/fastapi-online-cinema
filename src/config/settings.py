@@ -25,6 +25,10 @@ class Settings(BaseSettings):
         JWT_ALGORITHM: Algorithm used for JWT encoding/decoding.
         ACCESS_TOKEN_EXPIRE_MINUTES: Access token TTL in minutes.
         REFRESH_TOKEN_EXPIRE_DAYS: Refresh token TTL in days.
+        S3_ENDPOINT_URL: S3-compatible storage endpoint (MinIO).
+        S3_ACCESS_KEY: S3 access key.
+        S3_SECRET_KEY: S3 secret key.
+        S3_BUCKET_NAME: S3 bucket name for file storage.
     """
 
     # Database
@@ -42,6 +46,12 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30)
     REFRESH_TOKEN_EXPIRE_DAYS: int = os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 7)
+
+    # S3 / MinIO
+    S3_ENDPOINT_URL: str = os.getenv("S3_ENDPOINT_URL", "http://localhost:9000")
+    S3_ACCESS_KEY: str = os.getenv("S3_ACCESS_KEY", "minioadmin")
+    S3_SECRET_KEY: str = os.getenv("S3_SECRET_KEY", "minioadmin")
+    S3_BUCKET_NAME: str = os.getenv("S3_BUCKET_NAME", "cinema-bucket")
 
 
 # Singleton settings instance used throughout the application.
