@@ -25,6 +25,7 @@ class Settings(BaseSettings):
         JWT_ALGORITHM: Algorithm used for JWT encoding/decoding.
         ACCESS_TOKEN_EXPIRE_MINUTES: Access token TTL in minutes.
         REFRESH_TOKEN_EXPIRE_DAYS: Refresh token TTL in days.
+        REDIS_URL: Redis connection URL for Celery broker and caching.
         S3_ENDPOINT_URL: S3-compatible storage endpoint (MinIO).
         S3_ACCESS_KEY: S3 access key.
         S3_SECRET_KEY: S3 secret key.
@@ -37,15 +38,20 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = os.getenv("POSTGRES_DB", "test_db")
     POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "localhost")
     POSTGRES_PORT: int = os.getenv("POSTGRES_PORT", 5432)
-    DATABASE_URL: str = (f"postgresql+asyncpg://{POSTGRES_USER}"
-                         f":{POSTGRES_PASSWORD}@{POSTGRES_HOST}"
-                         f":{POSTGRES_PORT}/{POSTGRES_DB}")
+    DATABASE_URL: str = (
+        f"postgresql+asyncpg://{POSTGRES_USER}"
+        f":{POSTGRES_PASSWORD}@{POSTGRES_HOST}"
+        f":{POSTGRES_PORT}/{POSTGRES_DB}"
+    )
 
     # JWT
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "secret_key")
     JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30)
     REFRESH_TOKEN_EXPIRE_DAYS: int = os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 7)
+
+    # Redis
+    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
     # S3 / MinIO
     S3_ENDPOINT_URL: str = os.getenv("S3_ENDPOINT_URL", "http://localhost:9000")
