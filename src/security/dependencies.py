@@ -7,8 +7,9 @@ from request headers and instantiating security service objects.
 
 from fastapi import Header, HTTPException, status
 
-from src.security.interfaces import JWTAuthManagerInterface
+from src.security.interfaces import JWTAuthManagerInterface, S3StorageInterface
 from src.security.jwt_manager import JWTAuthManager
+from src.s3.client import S3StorageClient
 
 
 def get_token(authorization: str = Header(..., description="Bearer token")) -> str:
@@ -42,3 +43,13 @@ def get_jwt_auth_manager() -> JWTAuthManagerInterface:
         JWTAuthManagerInterface: A configured JWT authentication manager.
     """
     return JWTAuthManager()
+
+
+def get_s3_storage_client() -> S3StorageInterface:
+    """
+    Provide an S3StorageClient instance for dependency injection.
+
+    Returns:
+        S3StorageInterface: A configured S3 storage client.
+    """
+    return S3StorageClient()
