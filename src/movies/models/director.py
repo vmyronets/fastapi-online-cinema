@@ -6,7 +6,11 @@ Many-to-many relationship with Movie through movie_directors table.
 """
 
 from sqlalchemy import Integer, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+    relationship
+)
 
 from typing import TYPE_CHECKING
 
@@ -29,11 +33,22 @@ class DirectorModel(Base):
     """
     __tablename__ = "directors"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True
+    )
+    name: Mapped[str] = mapped_column(
+        String(255),
+        unique=True,
+        nullable=False
+    )
 
     movies: Mapped[list["MovieModel"]] = relationship(
-        "MovieModel", secondary="movie_directors", back_populates="directors", lazy="selectin"
+        "MovieModel",
+        secondary="movie_directors",
+        back_populates="directors",
+        lazy="selectin"
     )
 
     def __repr__(self) -> str:

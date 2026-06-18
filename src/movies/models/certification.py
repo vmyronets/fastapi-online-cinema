@@ -6,7 +6,11 @@ Represents the certifications table storing movie ratings/certifications
 """
 
 from sqlalchemy import Integer, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+    relationship
+)
 
 from typing import TYPE_CHECKING
 
@@ -29,8 +33,16 @@ class CertificationModel(Base):
     """
     __tablename__ = "certifications"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True
+    )
+    name: Mapped[str] = mapped_column(
+        String(50),
+        unique=True,
+        nullable=False
+    )
 
     movies: Mapped[list["MovieModel"]] = relationship(
         "MovieModel", back_populates="certification", lazy="selectin"
