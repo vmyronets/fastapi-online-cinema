@@ -1,15 +1,14 @@
 """
-MovieLike ORM model.
+Favorite ORM model.
 
-Represents the movie_likes table storing user likes/dislikes on movies.
-Each user can like or dislike a movie once.
+Represents the favorites table storing user-movie favorite relationships.
+A user can add movies to their favorites list.
 """
 
 from datetime import datetime
 
 from sqlalchemy import (
     Integer,
-    Boolean,
     DateTime,
     ForeignKey,
     UniqueConstraint,
@@ -20,26 +19,25 @@ from sqlalchemy.orm import Mapped, mapped_column
 from src.database.session import Base
 
 
-class MovieLikeModel(Base):
+class FavoriteModel(Base):
     """
-    SQLAlchemy model for the movie_likes table.
+    SQLAlchemy model for the favorites table.
 
     Attributes:
         id: Primary key (int), auto-incremented.
         user_id: Foreign key to users table.
         movie_id: Foreign key to movies table.
-        is_like: True for like, False for dislike.
-        created_at: Timestamp of the like/dislike action.
+        created_at: Timestamp when the movie was added to favorites.
 
     Constraints:
-        Unique constraint on (user_id, movie_id) — one reaction per user per movie.
+        Unique constraint on (user_id, movie_id) to prevent duplicates.
     """
-    __tablename__ = "movie_likes"
+    __tablename__ = "favorites"
     __table_args__ = (
         UniqueConstraint(
             "user_id",
             "movie_id",
-            name="uq_like_user_movie"
+            name="uq_favorite_user_movie"
         )
     )
 
@@ -58,10 +56,6 @@ class MovieLikeModel(Base):
         ForeignKey("movies.id", ondelete="CASCADE"),
         nullable=False
     )
-    is_like: Mapped[bool] = mapped_column(
-        Boolean,
-        nullable=False
-    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -70,6 +64,6 @@ class MovieLikeModel(Base):
 
     def __repr__(self) -> str:
         return (
-            f"<MovieLikeModel(user_id={self.user_id}, "
-            f"movie_id={self.movie_id}, is_like={self.is_like})>"
+            f"<FavoriteModel(user_id={self.user_id},"
+            f" movie_id={self.movie_id})>"
         )
