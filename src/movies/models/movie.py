@@ -1,10 +1,25 @@
+"""
+Movie ORM model.
+
+Represents the movies table storing main movie data including
+title, year, duration, ratings, pricing, and relationships
+with genres, directors, stars, and certification.
+"""
+
 import uuid
 
 from sqlalchemy import Integer, String, Float, Text, Numeric, ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from typing import TYPE_CHECKING
 
 from src.database.session import Base
+
+if TYPE_CHECKING:
+    from src.movies.models.certification import CertificationModel
+    from src.movies.models.genre import GenreModel
+    from src.movies.models.director import DirectorModel
+    from src.movies.models.star import StarModel
 
 
 class MovieModel(Base):
@@ -24,6 +39,12 @@ class MovieModel(Base):
         description: Movie synopsis, not null.
         price: Movie price (DECIMAL(10,2)).
         certification_id: Foreign key to certifications table.
+
+    Relationships:
+        certification: Many-to-one with CertificationModel.
+        genres: Many-to-many with GenreModel via movie_genres.
+        directors: Many-to-many with DirectorModel via movie_directors.
+        stars: Many-to-many with StarModel via movie_stars.
     """
     __tablename__ = "movies"
     __table_args__ = (
@@ -45,6 +66,20 @@ class MovieModel(Base):
     price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False, default=0.00)
     certification_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("certifications.id"), nullable=False
+    )
+
+    # Relationships
+    certification: Mapped["CertificationModel"] = relationship(
+        "CertificationModel", back_populates="movies", lazy="selectin"
+    )
+    genres: Mapped[list["GenreModel"]] = relationship(
+        "GenreModel", secondary="movie_genres", back_populates="movies", lazy="selectin"
+    )
+    directors: Mapped[list["DirectorModel"]] = relationship(
+        "DirectorModel", secondary="movie_directors", back_populates="movies", lazy="selectin"
+    )
+    stars: Mapped[list["StarModel"]] = relationship(
+        "StarModel", secondary="movie_stars", back_populates="movies", lazy="selectin"
     )
 
     def __repr__(self) -> str:
