@@ -15,7 +15,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from movies.models.movie import MovieModel
-from movies.schemas import MovieListResponseSchema
+from movies.schemas import (
+    MovieListResponseSchema,
+    MovieDetailResponseSchema,
+)
 from src.accounts.models import (
     UserModel,
     UserGroupModel,
@@ -71,4 +74,35 @@ def _build_movie_list_response(movie: MovieModel) -> MovieListResponseSchema:
         price=float(movie.price),
         certification=movie.certification.name if movie.certification else None,
         genres=[g.name for g in movie.genres],
+    )
+
+
+def _build_movie_detail_response(
+        movie: MovieModel
+) -> MovieDetailResponseSchema:
+    """
+    Build a MovieDetailResponseSchema from a MovieModel instance.
+
+    Args:
+        movie: The MovieModel ORM instance.
+
+    Returns:
+        MovieDetailResponseSchema: Serialized movie detail.
+    """
+    return MovieDetailResponseSchema(
+        id=movie.id,
+        uuid=movie.uuid,
+        name=movie.name,
+        year=movie.year,
+        time=movie.time,
+        imdb=movie.imdb,
+        votes=movie.votes,
+        meta_score=movie.meta_score,
+        gross=movie.gross,
+        description=movie.description,
+        price=float(movie.price),
+        certification=movie.certification.name if movie.certification else None,
+        genres=[genre.name for genre in movie.genres],
+        directors=[director.name for director in movie.directors],
+        stars=[star.name for star in movie.stars]
     )
