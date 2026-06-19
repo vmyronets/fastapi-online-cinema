@@ -5,6 +5,7 @@ Defines request/response schemas for movies, genres, stars,
 directors, certifications, comments, ratings, favorites, and likes.
 """
 
+from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
@@ -171,5 +172,25 @@ class MovieDetailResponseSchema(MovieListResponseSchema):
     description: str
     directors: list[str] = []
     stars: list[str] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ──────────────────────────────────────────────
+# Comment
+# ──────────────────────────────────────────────
+
+class CommentCreateSchema(BaseModel):
+    """Schema for creating a comment on a movie."""
+    content: str = Field(..., min_length=1, max_length=2000)
+    parent_id: Optional[int] = None
+
+
+class CommentResponseSchema(CommentCreateSchema):
+    """Schema for comment response."""
+    id: int
+    user_id: int
+    movie_id: int
+    created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
