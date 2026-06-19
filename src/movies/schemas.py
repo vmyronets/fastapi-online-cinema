@@ -111,3 +111,20 @@ class MovieCreateSchema(BaseModel):
     genre_ids: list[int] = []
     director_ids: list[int] = []
     star_ids: list[int] = []
+
+
+class MovieUpdateSchema(BaseModel):
+    """Schema for updating a movie. All fields optional."""
+    name: Optional[str] = None
+    year: Optional[int] = None
+    time: Optional[int] = None
+    imdb: Optional[float] = Field(None, ge=0, le=10)
+    votes: Optional[int] = Field(None, ge=0)
+    meta_score: Optional[float] = None
+    gross: Optional[float] = None
+    description: Optional[str] = None
+    price: Optional[float] = Field(None, ge=0)
+    certification_id: Optional[int] = None
+    genre_ids: Optional[list[int]] = None
+    director_ids: Optional[list[int]] = None
+    star_ids: Optional[list[int]] = None
