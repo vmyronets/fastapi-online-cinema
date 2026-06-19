@@ -41,3 +41,17 @@ class StarResponseSchema(StarCreateSchema):
     model_config = {"from_attributes": True}
 
 
+# ──────────────────────────────────────────────
+# Director
+# ──────────────────────────────────────────────
+
+class DirectorCreateSchema(BaseModel):
+    """Schema for creating a director."""
+    name: str = Field(..., min_length=1, max_length=255)
+
+
+class DirectorResponseSchema(DirectorCreateSchema):
+    """Schema for director response."""
+    id: int
+
+    model_config = {"from_attributes": True}
