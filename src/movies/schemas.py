@@ -194,3 +194,22 @@ class CommentResponseSchema(CommentCreateSchema):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ──────────────────────────────────────────────
+# Rating
+# ──────────────────────────────────────────────
+
+class RatingCreateSchema(BaseModel):
+    """Schema for rating a movie (1-10 scale)."""
+    score: float = Field(..., ge=1, le=10)
+
+
+class RatingResponseSchema(RatingCreateSchema):
+    """Schema for rating response."""
+    id: int
+    user_id: int
+    movie_id: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
