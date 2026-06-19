@@ -13,9 +13,9 @@ from fastapi import UploadFile, File, Form
 from pydantic import BaseModel, EmailStr, Field, HttpUrl, model_validator
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Registration & Activation
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 class UserRegisterSchema(BaseModel):
     """
@@ -84,9 +84,9 @@ class ResendActivationSchema(BaseModel):
     email: EmailStr
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Login & Tokens
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 class LoginSchema(BaseModel):
     """
@@ -136,9 +136,9 @@ class AccessTokenResponseSchema(BaseModel):
     token_type: str = "bearer"
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Password Management
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 class ChangePasswordSchema(BaseModel):
     """
@@ -174,9 +174,9 @@ class PasswordResetConfirmSchema(BaseModel):
     new_password: str = Field(..., min_length=8, max_length=128)
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # User Profile
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 class ProfileCreateSchema:
     """
@@ -334,9 +334,9 @@ class ProfileUpdateSchema:
         )
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Admin: User Management
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 class AdminUserUpdateSchema(BaseModel):
     """

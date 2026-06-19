@@ -63,9 +63,9 @@ JWTManagerDep = Annotated[JWTAuthManagerInterface, Depends(get_jwt_auth_manager)
 router = APIRouter(prefix="/accounts", tags=["Accounts"])
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Helper: decode token and get user_id
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 def _decode_token(token: str, jwt_manager: JWTAuthManagerInterface) -> dict:
     """
@@ -148,9 +148,9 @@ async def _check_permission(
         )
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Registration
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 @router.post(
     "/register/",
@@ -237,9 +237,9 @@ async def register(
     )
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Activation
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 @router.post(
     "/activate/",
@@ -366,9 +366,9 @@ async def resend_activation(
     return MessageSchema(detail="Activation email resent successfully.")
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Login / Logout
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 @router.post(
     "/login/",
@@ -478,9 +478,9 @@ async def logout(
     return MessageSchema(detail="Successfully logged out.")
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Token Refresh
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 @router.post(
     "/token/refresh/",
@@ -536,9 +536,9 @@ async def refresh_access_token(
     return AccessTokenResponseSchema(access_token=new_access_token)
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Password Management
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 @router.post(
     "/password/change/",
@@ -715,9 +715,9 @@ async def confirm_password_reset(
     return MessageSchema(detail="Password reset successfully.")
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # User Profile
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 @router.post(
     "/users/{user_id}/profile/",
@@ -971,9 +971,9 @@ async def update_profile(
     )
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Admin: User Management
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 @router.patch(
     "/admin/users/{user_id}/",

@@ -16,9 +16,9 @@ from pydantic import (
 )
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Genre
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 class GenreCreateSchema(BaseModel):
     """Schema for creating a genre."""
@@ -33,9 +33,9 @@ class GenreResponseSchema(GenreCreateSchema):
     model_config = ConfigDict(from_attributes=True)
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Star
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 class StarCreateSchema(BaseModel):
     """Schema for creating a star/actor."""
@@ -49,9 +49,9 @@ class StarResponseSchema(StarCreateSchema):
     model_config = ConfigDict(from_attributes=True)
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Director
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 class DirectorCreateSchema(BaseModel):
     """Schema for creating a director."""
@@ -65,9 +65,9 @@ class DirectorResponseSchema(DirectorCreateSchema):
     model_config = ConfigDict(from_attributes=True)
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Certification
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 class CertificationResponseSchema(BaseModel):
     """Schema for certification response."""
@@ -77,9 +77,9 @@ class CertificationResponseSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Movie
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 class MovieCreateSchema(BaseModel):
     """
@@ -176,9 +176,9 @@ class MovieDetailResponseSchema(MovieListResponseSchema):
     model_config = ConfigDict(from_attributes=True)
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Comment
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 class CommentCreateSchema(BaseModel):
     """Schema for creating a comment on a movie."""
@@ -196,9 +196,9 @@ class CommentResponseSchema(CommentCreateSchema):
     model_config = ConfigDict(from_attributes=True)
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Rating
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 class RatingCreateSchema(BaseModel):
     """Schema for rating a movie (1-10 scale)."""
@@ -215,9 +215,9 @@ class RatingResponseSchema(RatingCreateSchema):
     model_config = ConfigDict(from_attributes=True)
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Favorite
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 class FavoriteResponseSchema(BaseModel):
     """Schema for favorite movie response."""
@@ -229,9 +229,9 @@ class FavoriteResponseSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Like / Dislike
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 class MovieLikeCreateSchema(BaseModel):
     """Schema for liking/disliking a movie."""
@@ -248,9 +248,9 @@ class MovieLikeResponseSchema(MovieLikeCreateSchema):
     model_config = ConfigDict(from_attributes=True)
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Pagination
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 class PaginatedResponseSchema(BaseModel):
     """
