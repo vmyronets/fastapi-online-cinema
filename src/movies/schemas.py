@@ -155,3 +155,21 @@ class MovieListResponseSchema(BaseModel):
     genres: list[str] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class MovieDetailResponseSchema(MovieListResponseSchema):
+    """
+    Schema for detailed movie response.
+
+    Includes all movie attributes plus related entities.
+    """
+
+    time: int
+    votes: int
+    meta_score: Optional[float] = None
+    gross: Optional[float] = None
+    description: str
+    directors: list[str] = []
+    stars: list[str] = []
+
+    model_config = ConfigDict(from_attributes=True)
