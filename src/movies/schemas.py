@@ -6,6 +6,7 @@ directors, certifications, comments, ratings, favorites, and likes.
 """
 
 from typing import Optional
+from uuid import UUID
 
 from pydantic import (
     BaseModel,
@@ -128,3 +129,29 @@ class MovieUpdateSchema(BaseModel):
     genre_ids: Optional[list[int]] = None
     director_ids: Optional[list[int]] = None
     star_ids: Optional[list[int]] = None
+
+
+class MovieListResponseSchema(BaseModel):
+    """
+    Schema for movie list response (paginated).
+
+    Attributes:
+        id: Movie ID.
+        uuid: Movie UUID.
+        name: Movie title.
+        year: Release year.
+        imdb: IMDb rating.
+        price: Movie price.
+        certification: Certification name.
+        genres: List of genre names.
+    """
+    id: int
+    uuid: UUID
+    name: str
+    year: int
+    imdb: float
+    price: float
+    certification: Optional[str] = None
+    genres: list[str] = []
+
+    model_config = ConfigDict(from_attributes=True)
