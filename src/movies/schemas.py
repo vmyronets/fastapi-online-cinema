@@ -227,3 +227,22 @@ class FavoriteResponseSchema(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ──────────────────────────────────────────────
+# Like / Dislike
+# ──────────────────────────────────────────────
+
+class MovieLikeCreateSchema(BaseModel):
+    """Schema for liking/disliking a movie."""
+    is_like: bool
+
+
+class MovieLikeResponseSchema(MovieLikeCreateSchema):
+    """Schema for movie like response."""
+    id: int
+    user_id: int
+    movie_id: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
