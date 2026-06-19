@@ -23,3 +23,21 @@ class GenreResponseSchema(GenreCreateSchema):
     movie_count: int = 0
 
     model_config = {"from_attributes": True}
+
+
+# ──────────────────────────────────────────────
+# Star
+# ──────────────────────────────────────────────
+
+class StarCreateSchema(BaseModel):
+    """Schema for creating a star/actor."""
+    name: str = Field(..., min_length=1, max_length=255)
+
+
+class StarResponseSchema(StarCreateSchema):
+    """Schema for star response."""
+    id: int
+
+    model_config = {"from_attributes": True}
+
+
