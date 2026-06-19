@@ -1,0 +1,25 @@
+"""
+Pydantic schemas for the movies module.
+
+Defines request/response schemas for movies, genres, stars,
+directors, certifications, comments, ratings, favorites, and likes.
+"""
+
+from pydantic import BaseModel, Field
+
+
+# ──────────────────────────────────────────────
+# Genre
+# ──────────────────────────────────────────────
+
+class GenreCreateSchema(BaseModel):
+    """Schema for creating a genre."""
+    name: str = Field(..., min_length=1, max_length=100)
+
+
+class GenreResponseSchema(GenreCreateSchema):
+    """Schema for genre response with movie count."""
+    id: int
+    movie_count: int = 0
+
+    model_config = {"from_attributes": True}
