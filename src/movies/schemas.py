@@ -213,3 +213,17 @@ class RatingResponseSchema(RatingCreateSchema):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ──────────────────────────────────────────────
+# Favorite
+# ──────────────────────────────────────────────
+
+class FavoriteResponseSchema(BaseModel):
+    """Schema for favorite movie response."""
+    id: int
+    user_id: int
+    movie_id: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
