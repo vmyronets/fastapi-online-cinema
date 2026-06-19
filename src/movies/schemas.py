@@ -55,3 +55,15 @@ class DirectorResponseSchema(DirectorCreateSchema):
     id: int
 
     model_config = {"from_attributes": True}
+
+
+# ──────────────────────────────────────────────
+# Certification
+# ──────────────────────────────────────────────
+
+class CertificationResponseSchema(BaseModel):
+    """Schema for certification response."""
+    id: int
+    name: str
+
+    model_config = {"from_attributes": True}
