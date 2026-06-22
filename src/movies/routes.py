@@ -12,13 +12,13 @@ from fastapi import (
     HTTPException,
     status,
     Query,
-    Depends
+    Depends,
 )
 
 from sqlalchemy import (
     select,
     func,
-    or_
+    or_,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -40,7 +40,9 @@ from movies.schemas import (
     MovieDetailResponseSchema,
     PaginatedResponseSchema,
     GenreResponseSchema,
-    GenreCreateSchema, MovieCreateSchema,
+    GenreCreateSchema,
+    MovieCreateSchema,
+    MovieUpdateSchema,
 )
 from src.accounts.models import (
     UserModel,
@@ -496,27 +498,122 @@ async def create_movie(
 
     # Attach genres.
     if data.genre_ids:
-        genres = (await db.execute(
-            select(GenreModel).where(GenreModel.id.in_(data.genre_ids))
-        )).scalars().all()
+        genres = (
+            await db.execute(
+                select(GenreModel).where(GenreModel.id.in_(data.genre_ids)))
+        ).scalars().all()
         movie.genres = list(genres)
 
     # Attach directors.
     if data.director_ids:
-        directors = (await db.execute(
-            select(DirectorModel).where(
-                DirectorModel.id.in_(data.director_ids))
-        )).scalars().all()
+        directors = (
+            await db.execute(
+                select(DirectorModel).where(
+                    DirectorModel.id.in_(data.director_ids)))
+        ).scalars().all()
         movie.directors = list(directors)
 
     # Attach stars.
     if data.star_ids:
-        stars = (await db.execute(
-            select(StarModel).where(StarModel.id.in_(data.star_ids))
-        )).scalars().all()
+        stars = (
+            await db.execute(
+                select(StarModel).where(StarModel.id.in_(data.star_ids)))
+        ).scalars().all()
         movie.stars = list(stars)
 
     db.add(movie)
+    await db.commit()
+    await db.refresh(movie)
+
+    return _build_movie_detail_response(movie)
+
+
+@router.patch(
+    "/{movie_id}/",
+    response_model=MovieDetailResponseSchema,
+    summary="Update a movie (moderator)",
+)
+async def update_movie(
+    movie_id: int,
+    db: SessionDep,
+    jwt_manager: JWTManagerDep,
+    data: MovieUpdateSchema,
+    token: str = Depends(get_token),
+) -> MovieDetailResponseSchema:
+    """
+    Update an existing movie (moderator/admin only).
+
+    Steps:
+    - Verify moderator/admin privileges.
+    - Find the movie.
+    - Update only provided fields.
+
+    Args:
+        movie_id (int): The movie's ID.
+        db (AsyncSession): The asynchronous database session.
+        jwt_manager (JWTAuthManagerInterface): JWT manager for decoding.
+        data (MovieUpdateSchema): Fields to update.
+        token (str): The authentication token.
+
+    Returns:
+        MovieDetailResponseSchema: The updated movie details.
+
+    Raises:
+        HTTPException: If not authorized or movie not found.
+    """
+    payload = _decode_token(token, jwt_manager)
+    await _require_moderator(db, payload.get("user_id"))
+
+    stmt = select(MovieModel).where(MovieModel.id == movie_id)
+    result = await db.execute(stmt)
+    movie = result.scalars().first()
+    if not movie:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Movie not found."
+        )
+
+    # Update scalar fields.
+    update_data = data.model_dump(exclude_unset=True)
+    for field in (
+            "name",
+            "year",
+            "time",
+            "imdb",
+            "votes",
+            "meta_score",
+            "gross",
+            "description",
+            "price",
+            "certification_id"
+    ):
+        if field in update_data:
+            setattr(movie, field, update_data[field])
+
+    # Update relationships.
+    if data.genre_ids is not None:
+        genres = (
+            await db.execute(
+                select(GenreModel).where(GenreModel.id.in_(data.genre_ids)))
+        ).scalars().all()
+        movie.genres = list(genres)
+
+    if data.director_ids is not None:
+        directors = (
+            await db.execute(select(DirectorModel).where(
+                DirectorModel.id.in_(data.director_ids))
+            )
+        ).scalars().all()
+        movie.directors = list(directors)
+
+    if data.star_ids is not None:
+        stars = (
+            await db.execute(select(StarModel).where(
+                StarModel.id.in_(data.star_ids))
+            )
+        ).scalars().all()
+        movie.stars = list(stars)
+
     await db.commit()
     await db.refresh(movie)
 
