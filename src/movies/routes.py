@@ -12,7 +12,7 @@ from fastapi import (
     HTTPException,
     status,
     Query,
-    Depends,
+    Depends
 )
 
 from sqlalchemy import (
@@ -22,27 +22,30 @@ from sqlalchemy import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from movies.models import FavoriteModel
 from src.accounts.routes import SessionDep, JWTManagerDep
 from security.dependencies import get_token
 from security.exceptions import BaseSecurityError
 from security.interfaces import JWTAuthManagerInterface
 from src.movies.models import (
+    CertificationModel,
+    DirectorModel,
+    FavoriteModel,
     GenreModel,
     MovieModel,
-    movie_genres
+    StarModel,
+    movie_genres,
 )
 from movies.schemas import (
     MovieListResponseSchema,
     MovieDetailResponseSchema,
     PaginatedResponseSchema,
     GenreResponseSchema,
-    GenreCreateSchema,
+    GenreCreateSchema, MovieCreateSchema,
 )
 from src.accounts.models import (
     UserModel,
     UserGroupModel,
-    UserGroupEnum
+    UserGroupEnum,
 )
 
 router = APIRouter(prefix="/movies", tags=["Movies"])
@@ -162,30 +165,30 @@ def _build_movie_detail_response(
             "filtering, sorting, and search"
 )
 async def list_movies(
-    db: SessionDep,
-    page: int = Query(1, ge=1, description="Page number"),
-    per_page: int = Query(
-        10, ge=1, le=100, description="Items per page"
-    ),
-    year: Optional[int] = Query(
-        None, description="Filter by release year"
-    ),
-    min_imdb: Optional[float] = Query(
-        None, ge=0, le=10, description="Minimum IMDb rating"
-    ),
-    genre: Optional[str] = Query(
-        None, description="Filter by genre name"
-    ),
-    sort_by: Optional[str] = Query(
-        None, description="Sort field: price, year, imdb, name"
-    ),
-    sort_order: Optional[str] = Query(
-        "asc", description="Sort order: asc or desc"
-    ),
-    search: Optional[str] = Query(
-        None,
-        description="Search by title, description, actor, or director"
-    ),
+        db: SessionDep,
+        page: int = Query(1, ge=1, description="Page number"),
+        per_page: int = Query(
+            10, ge=1, le=100, description="Items per page"
+        ),
+        year: Optional[int] = Query(
+            None, description="Filter by release year"
+        ),
+        min_imdb: Optional[float] = Query(
+            None, ge=0, le=10, description="Minimum IMDb rating"
+        ),
+        genre: Optional[str] = Query(
+            None, description="Filter by genre name"
+        ),
+        sort_by: Optional[str] = Query(
+            None, description="Sort field: price, year, imdb, name"
+        ),
+        sort_order: Optional[str] = Query(
+            "asc", description="Sort order: asc or desc"
+        ),
+        search: Optional[str] = Query(
+            None,
+            description="Search by title, description, actor, or director"
+        ),
 ) -> PaginatedResponseSchema:
     """
     Browse the movie catalog with pagination, filtering, sorting, and search.
@@ -271,7 +274,7 @@ async def list_movies(
     summary="List all genres with movie counts",
 )
 async def list_genres(
-    db: SessionDep,
+        db: SessionDep,
 ) -> list[GenreResponseSchema]:
     """
     List all genres with the count of movies in each.
@@ -306,10 +309,10 @@ async def list_genres(
     status_code=status.HTTP_201_CREATED,
 )
 async def create_genre(
-    db: SessionDep,
-    jwt_manager: JWTManagerDep,
-    data: GenreCreateSchema,
-    token: str = Depends(get_token),
+        db: SessionDep,
+        jwt_manager: JWTManagerDep,
+        data: GenreCreateSchema,
+        token: str = Depends(get_token),
 ) -> GenreResponseSchema:
     """
     Create a new genre (moderator/admin only).
@@ -347,11 +350,11 @@ async def create_genre(
     summary="List user's favorite movies",
 )
 async def list_favorites(
-    db: SessionDep,
-    jwt_manager: JWTManagerDep,
-    token: str = Depends(get_token),
-    page: int = Query(1, ge=1),
-    per_page: int = Query(10, ge=1, le=100),
+        db: SessionDep,
+        jwt_manager: JWTManagerDep,
+        token: str = Depends(get_token),
+        page: int = Query(1, ge=1),
+        per_page: int = Query(10, ge=1, le=100),
 ) -> PaginatedResponseSchema:
     """
     List the authenticated user's favorite movies with pagination.
@@ -397,8 +400,8 @@ async def list_favorites(
     summary="Get movie details",
 )
 async def get_movie(
-    movie_id: int,
-    db: SessionDep,
+        movie_id: int,
+        db: SessionDep,
 ) -> MovieDetailResponseSchema:
     """
     Get detailed information about a specific movie.
@@ -422,5 +425,99 @@ async def get_movie(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Movie not found."
         )
+
+    return _build_movie_detail_response(movie)
+
+
+# ----------------------------------------------
+# Movie CRUD (Moderator)
+# ----------------------------------------------
+
+@router.post(
+    "/",
+    response_model=MovieDetailResponseSchema,
+    summary="Create a movie (moderator)",
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_movie(
+        data: MovieCreateSchema,
+        db: SessionDep,
+        jwt_manager: JWTManagerDep,
+        token: str = Depends(get_token),
+) -> MovieDetailResponseSchema:
+    """
+    Create a new movie entry (moderator/admin only).
+
+    Steps:
+    - Verify moderator/admin privileges.
+    - Validate certification exists.
+    - Create movie with associated genres, directors, and stars.
+
+    Args:
+        data (MovieCreateSchema): Movie data.
+        db (AsyncSession): The asynchronous database session.
+        jwt_manager (JWTAuthManagerInterface): JWT manager for decoding.
+        token (str): The authentication token.
+
+    Returns:
+        MovieDetailResponseSchema: The created movie details.
+
+    Raises:
+        HTTPException: If not authorized or certification not found.
+    """
+    payload = _decode_token(token, jwt_manager)
+    await _require_moderator(db, payload.get("user_id"))
+
+    # Verify certification exists.
+    cert = (
+        await db.execute(
+            select(CertificationModel)
+            .where(CertificationModel.id == data.certification_id)
+        )
+    ).scalars().first()
+    if not cert:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Certification not found."
+        )
+
+    movie = MovieModel(
+        name=data.name,
+        year=data.year,
+        time=data.time,
+        imdb=data.imdb,
+        votes=data.votes,
+        meta_score=data.meta_score,
+        gross=data.gross,
+        description=data.description,
+        price=data.price,
+        certification_id=data.certification_id,
+    )
+
+    # Attach genres.
+    if data.genre_ids:
+        genres = (await db.execute(
+            select(GenreModel).where(GenreModel.id.in_(data.genre_ids))
+        )).scalars().all()
+        movie.genres = list(genres)
+
+    # Attach directors.
+    if data.director_ids:
+        directors = (await db.execute(
+            select(DirectorModel).where(
+                DirectorModel.id.in_(data.director_ids))
+        )).scalars().all()
+        movie.directors = list(directors)
+
+    # Attach stars.
+    if data.star_ids:
+        stars = (await db.execute(
+            select(StarModel).where(StarModel.id.in_(data.star_ids))
+        )).scalars().all()
+        movie.stars = list(stars)
+
+    db.add(movie)
+    await db.commit()
+    await db.refresh(movie)
 
     return _build_movie_detail_response(movie)
