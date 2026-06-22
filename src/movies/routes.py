@@ -22,6 +22,9 @@ from sqlalchemy import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from security.dependencies import get_token, get_jwt_auth_manager
+from security.exceptions import BaseSecurityError
+from security.interfaces import JWTAuthManagerInterface
 from src.database.session import get_db
 from src.movies.models import (
     GenreModel,
@@ -33,6 +36,7 @@ from movies.schemas import (
     MovieDetailResponseSchema,
     PaginatedResponseSchema,
     GenreResponseSchema,
+    GenreCreateSchema,
 )
 from src.accounts.models import (
     UserModel,
@@ -44,10 +48,35 @@ router = APIRouter(prefix="/movies", tags=["Movies"])
 
 SessionDep = Annotated[AsyncSession, Depends(get_db)]
 
+JWTManagerDep = Annotated[JWTAuthManagerInterface, Depends(get_jwt_auth_manager)]
+
 
 # ----------------------------------------------
 # Helpers
 # ----------------------------------------------
+
+def _decode_token(token: str, jwt_manager: JWTAuthManagerInterface) -> dict:
+    """
+    Decode and validate a JWT access token.
+
+    Args:
+        token: The raw JWT token string.
+        jwt_manager: JWT manager instance for decoding.
+
+    Returns:
+        dict: The decoded token payload.
+
+    Raises:
+        HTTPException: If the token is invalid or expired.
+    """
+    try:
+        return jwt_manager.decode_access_token(token)
+    except BaseSecurityError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+        )
+
 
 async def _require_moderator(db: AsyncSession, user_id: int) -> None:
     """
@@ -271,3 +300,41 @@ async def list_genres(
         GenreResponseSchema(id=genre.id, name=genre.name, movie_count=count)
         for genre, count in rows
     ]
+
+
+@router.post(
+    "/genres/",
+    response_model=GenreResponseSchema,
+    summary="Create a genre (moderator)",
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_genre(
+    db: SessionDep,
+    jwt_manager: JWTManagerDep,
+    data: GenreCreateSchema,
+    token: str = Depends(get_token),
+) -> GenreResponseSchema:
+    """
+    Create a new genre (moderator/admin only).
+
+    Args:
+        data (GenreCreateSchema): Genre data.
+        token (str): The authentication token.
+        jwt_manager (JWTAuthManagerInterface): JWT manager for decoding.
+        db (AsyncSession): The asynchronous database session.
+
+    Returns:
+        GenreResponseSchema: The created genre.
+
+    Raises:
+        HTTPException: If not authorized or genre already exists.
+    """
+    payload = _decode_token(token, jwt_manager)
+    await _require_moderator(db, payload.get("user_id"))
+
+    genre = GenreModel(name=data.name)
+    db.add(genre)
+    await db.commit()
+    await db.refresh(genre)
+
+    return GenreResponseSchema(id=genre.id, name=genre.name, movie_count=0)

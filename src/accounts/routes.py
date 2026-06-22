@@ -442,8 +442,8 @@ async def login(
     summary="User logout",
 )
 async def logout(
+    jwt_manager: JWTManagerDep,
     token: str = Depends(get_token),
-    jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
     db: AsyncSession = Depends(get_db),
 ) -> MessageSchema:
     """
@@ -547,8 +547,8 @@ async def refresh_access_token(
 )
 async def change_password(
     data: ChangePasswordSchema,
+    jwt_manager: JWTManagerDep,
     token: str = Depends(get_token),
-    jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
     db: AsyncSession = Depends(get_db),
 ) -> MessageSchema:
     """
@@ -727,8 +727,8 @@ async def confirm_password_reset(
 )
 async def create_profile(
     user_id: int,
+    jwt_manager: JWTManagerDep,
     token: str = Depends(get_token),
-    jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
     db: AsyncSession = Depends(get_db),
     s3_client: S3StorageInterface = Depends(get_s3_storage_client),
     profile_data: ProfileCreateSchema = Depends(ProfileCreateSchema.from_form),
@@ -823,8 +823,8 @@ async def create_profile(
 )
 async def get_profile(
     user_id: int,
+    jwt_manager: JWTManagerDep,
     token: str = Depends(get_token),
-    jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
     db: AsyncSession = Depends(get_db),
     s3_client: S3StorageInterface = Depends(get_s3_storage_client),
 ) -> ProfileResponseSchema:
@@ -884,8 +884,8 @@ async def get_profile(
 )
 async def update_profile(
     user_id: int,
+    jwt_manager: JWTManagerDep,
     token: str = Depends(get_token),
-    jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
     db: AsyncSession = Depends(get_db),
     s3_client: S3StorageInterface = Depends(get_s3_storage_client),
     profile_data: ProfileUpdateSchema = Depends(ProfileUpdateSchema.from_form),
@@ -983,8 +983,8 @@ async def update_profile(
 async def admin_update_user(
     user_id: int,
     data: AdminUserUpdateSchema,
+    jwt_manager: JWTManagerDep,
     token: str = Depends(get_token),
-    jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
     db: AsyncSession = Depends(get_db),
 ) -> MessageSchema:
     """
