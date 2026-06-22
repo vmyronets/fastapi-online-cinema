@@ -25,12 +25,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.database.session import get_db
 from src.movies.models import (
     GenreModel,
-    MovieModel
+    MovieModel,
+    movie_genres
 )
 from movies.schemas import (
     MovieListResponseSchema,
     MovieDetailResponseSchema,
     PaginatedResponseSchema,
+    GenreResponseSchema,
 )
 from src.accounts.models import (
     UserModel,
@@ -231,3 +233,41 @@ async def list_movies(
         per_page=per_page,
         pages=math.ceil(total / per_page) if per_page else 0,
     )
+
+
+# ----------------------------------------------
+# Genres (must be before /{movie_id}/ to avoid path conflicts)
+# ----------------------------------------------
+
+@router.get(
+    "/genres/",
+    response_model=list[GenreResponseSchema],
+    summary="List all genres with movie counts",
+)
+async def list_genres(
+    db: SessionDep,
+) -> list[GenreResponseSchema]:
+    """
+    List all genres with the count of movies in each.
+
+    Args:
+        db (AsyncSession): The asynchronous database session.
+
+    Returns:
+        list[GenreResponseSchema]: List of genres with movie counts.
+    """
+    stmt = (
+        select(
+            GenreModel, func.count(
+                movie_genres.c.movie_id).label("movie_count")
+        )
+        .outerjoin(movie_genres, GenreModel.id == movie_genres.c.genre_id)
+        .group_by(GenreModel.id)
+    )
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    return [
+        GenreResponseSchema(id=genre.id, name=genre.name, movie_count=count)
+        for genre, count in rows
+    ]
