@@ -12,7 +12,7 @@ from fastapi import (
     HTTPException,
     status,
     Query,
-    Depends,
+    Depends
 )
 
 from sqlalchemy import (
@@ -22,6 +22,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from movies.models import CommentModel
 from src.accounts.routes import SessionDep, JWTManagerDep
 from security.dependencies import get_token
 from security.exceptions import BaseSecurityError
@@ -33,7 +34,7 @@ from src.movies.models import (
     GenreModel,
     MovieModel,
     StarModel,
-    movie_genres,
+    movie_genres
 )
 from movies.schemas import (
     MovieListResponseSchema,
@@ -43,11 +44,13 @@ from movies.schemas import (
     GenreCreateSchema,
     MovieCreateSchema,
     MovieUpdateSchema,
+    CommentResponseSchema,
+    CommentCreateSchema,
 )
 from src.accounts.models import (
     UserModel,
     UserGroupModel,
-    UserGroupEnum,
+    UserGroupEnum
 )
 
 router = APIRouter(prefix="/movies", tags=["Movies"])
@@ -618,3 +621,64 @@ async def update_movie(
     await db.refresh(movie)
 
     return _build_movie_detail_response(movie)
+
+
+# ----------------------------------------------
+# Comments
+# ----------------------------------------------
+
+@router.post(
+    "/{movie_id}/comments/",
+    response_model=CommentResponseSchema,
+    summary="Add a comment to a movie",
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_comment(
+    movie_id: int,
+    db: SessionDep,
+    jwt_manager: JWTManagerDep,
+    data: CommentCreateSchema,
+    token: str = Depends(get_token),
+) -> CommentResponseSchema:
+    """
+    Add a comment to a movie.
+
+    Steps:
+    - Authenticate user.
+    - Verify movie exists.
+    - Create comment (optionally as a reply to another comment).
+
+    Args:
+        movie_id (int): The movie's ID.
+        db (AsyncSession): The asynchronous database session.
+        jwt_manager (JWTAuthManagerInterface): JWT manager for decoding.
+        data (CommentCreateSchema): Comment content and optional parent_id.
+        token (str): The authentication token.
+
+    Returns:
+        CommentResponseSchema: The created comment.
+
+    Raises:
+        HTTPException: If not authenticated or movie not found.
+    """
+    payload = _decode_token(token, jwt_manager)
+    user_id = payload.get("user_id")
+
+    comment = CommentModel(
+        user_id=user_id,
+        movie_id=movie_id,
+        content=data.content,
+        parent_id=data.parent_id,
+    )
+    db.add(comment)
+    await db.commit()
+    await db.refresh(comment)
+
+    return CommentResponseSchema(
+        id=comment.id,
+        user_id=comment.user_id,
+        movie_id=comment.movie_id,
+        content=comment.content,
+        parent_id=comment.parent_id,
+        created_at=comment.created_at,
+    )
