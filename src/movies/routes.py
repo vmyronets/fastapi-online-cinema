@@ -682,3 +682,43 @@ async def create_comment(
         parent_id=comment.parent_id,
         created_at=comment.created_at,
     )
+
+
+@router.get(
+    "/{movie_id}/comments/",
+    response_model=list[CommentResponseSchema],
+    summary="List comments for a movie",
+)
+async def list_comments(
+    movie_id: int,
+    db: SessionDep,
+) -> list[CommentResponseSchema]:
+    """
+    List all comments for a specific movie.
+
+    Args:
+        movie_id (int): The movie's ID.
+        db (AsyncSession): The asynchronous database session.
+
+    Returns:
+        list[CommentResponseSchema]: List of comments.
+    """
+    stmt = (
+        select(CommentModel)
+        .where(CommentModel.movie_id == movie_id)
+        .order_by(CommentModel.created_at)
+    )
+    result = await db.execute(stmt)
+    comments = result.scalars().all()
+
+    return [
+        CommentResponseSchema(
+            id=comment.id,
+            user_id=comment.user_id,
+            movie_id=comment.movie_id,
+            content=comment.content,
+            parent_id=comment.parent_id,
+            created_at=comment.created_at,
+        )
+        for comment in comments
+    ]
