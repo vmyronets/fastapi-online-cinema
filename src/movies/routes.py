@@ -389,3 +389,38 @@ async def list_favorites(
         per_page=per_page,
         pages=math.ceil(total / per_page) if per_page else 0,
     )
+
+
+@router.get(
+    "/{movie_id}/",
+    response_model=MovieDetailResponseSchema,
+    summary="Get movie details",
+)
+async def get_movie(
+    movie_id: int,
+    db: SessionDep,
+) -> MovieDetailResponseSchema:
+    """
+    Get detailed information about a specific movie.
+
+    Args:
+        movie_id (int): The movie's ID.
+        db (AsyncSession): The asynchronous database session.
+
+    Returns:
+        MovieDetailResponseSchema: Full movie details.
+
+    Raises:
+        HTTPException: If movie not found.
+    """
+    stmt = select(MovieModel).where(MovieModel.id == movie_id)
+    result = await db.execute(stmt)
+    movie = result.scalars().first()
+
+    if not movie:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Movie not found."
+        )
+
+    return _build_movie_detail_response(movie)
