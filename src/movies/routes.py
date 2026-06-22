@@ -5,7 +5,7 @@ Provides endpoints for browsing movies, CRUD operations (moderator),
 genres, comments, ratings, favorites, and likes/dislikes.
 """
 import math
-from typing import Optional, Annotated
+from typing import Optional
 
 from fastapi import (
     APIRouter,
@@ -22,10 +22,11 @@ from sqlalchemy import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from security.dependencies import get_token, get_jwt_auth_manager
+from movies.models import FavoriteModel
+from src.accounts.routes import SessionDep, JWTManagerDep
+from security.dependencies import get_token
 from security.exceptions import BaseSecurityError
 from security.interfaces import JWTAuthManagerInterface
-from src.database.session import get_db
 from src.movies.models import (
     GenreModel,
     MovieModel,
@@ -45,10 +46,6 @@ from src.accounts.models import (
 )
 
 router = APIRouter(prefix="/movies", tags=["Movies"])
-
-SessionDep = Annotated[AsyncSession, Depends(get_db)]
-
-JWTManagerDep = Annotated[JWTAuthManagerInterface, Depends(get_jwt_auth_manager)]
 
 
 # ----------------------------------------------
@@ -338,3 +335,57 @@ async def create_genre(
     await db.refresh(genre)
 
     return GenreResponseSchema(id=genre.id, name=genre.name, movie_count=0)
+
+
+# ----------------------------------------------
+# Favorites (must be before /{movie_id}/ to avoid path conflicts)
+# ----------------------------------------------
+
+@router.get(
+    "/favorites/",
+    response_model=PaginatedResponseSchema,
+    summary="List user's favorite movies",
+)
+async def list_favorites(
+    db: SessionDep,
+    jwt_manager: JWTManagerDep,
+    token: str = Depends(get_token),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1, le=100),
+) -> PaginatedResponseSchema:
+    """
+    List the authenticated user's favorite movies with pagination.
+
+    Args:
+        db (AsyncSession): The asynchronous database session.
+        jwt_manager (JWTAuthManagerInterface): JWT manager for decoding.
+        token (str): The authentication token.
+        page (int): Page number.
+        per_page (int): Items per page.
+
+    Returns:
+        PaginatedResponseSchema: Paginated list of favorite movies.
+    """
+    payload = _decode_token(token, jwt_manager)
+    user_id = payload.get("user_id")
+
+    stmt = (
+        select(MovieModel)
+        .join(FavoriteModel, FavoriteModel.movie_id == MovieModel.id)
+        .where(FavoriteModel.user_id == user_id)
+    )
+
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    total = (await db.execute(count_stmt)).scalar() or 0
+
+    stmt = stmt.offset((page - 1) * per_page).limit(per_page)
+    result = await db.execute(stmt)
+    movies = result.scalars().unique().all()
+
+    return PaginatedResponseSchema(
+        items=[_build_movie_list_response(m) for m in movies],
+        total=total,
+        page=page,
+        per_page=per_page,
+        pages=math.ceil(total / per_page) if per_page else 0,
+    )
