@@ -22,7 +22,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from movies.models import CommentModel
+from movies.models import CommentModel, RatingModel
 from src.accounts.routes import SessionDep, JWTManagerDep
 from security.dependencies import get_token
 from security.exceptions import BaseSecurityError
@@ -46,6 +46,8 @@ from movies.schemas import (
     MovieUpdateSchema,
     CommentResponseSchema,
     CommentCreateSchema,
+    RatingResponseSchema,
+    RatingCreateSchema
 )
 from src.accounts.models import (
     UserModel,
@@ -722,3 +724,73 @@ async def list_comments(
         )
         for comment in comments
     ]
+
+
+# ----------------------------------------------
+# Ratings
+# ----------------------------------------------
+
+@router.post(
+    "/{movie_id}/ratings/",
+    response_model=RatingResponseSchema,
+    summary="Rate a movie",
+    status_code=status.HTTP_201_CREATED,
+)
+async def rate_movie(
+    movie_id: int,
+    db: SessionDep,
+    jwt_manager: JWTManagerDep,
+    data: RatingCreateSchema,
+    token: str = Depends(get_token),
+) -> RatingResponseSchema:
+    """
+    Rate a movie on a 1-10 scale.
+
+    Creates or updates the user's rating for the movie.
+
+    Args:
+        movie_id (int): The movie's ID.
+        db (AsyncSession): The asynchronous database session.
+        jwt_manager (JWTAuthManagerInterface): JWT manager for decoding.
+        data (RatingCreateSchema): The rating score.
+        token (str): The authentication token.
+
+    Returns:
+        RatingResponseSchema: The created/updated rating.
+
+    Raises:
+        HTTPException: If not authenticated.
+    """
+    payload = _decode_token(token, jwt_manager)
+    user_id = payload.get("user_id")
+
+    # Check for existing rating.
+    stmt = select(RatingModel).where(
+        RatingModel.user_id == user_id,
+        RatingModel.movie_id == movie_id
+    )
+    result = await db.execute(stmt)
+    existing = result.scalars().first()
+
+    if existing:
+        existing.score = data.score
+        await db.commit()
+        await db.refresh(existing)
+        rating = existing
+    else:
+        rating = RatingModel(
+            user_id=user_id,
+            movie_id=movie_id,
+            score=data.score
+        )
+        db.add(rating)
+        await db.commit()
+        await db.refresh(rating)
+
+    return RatingResponseSchema(
+        id=rating.id,
+        user_id=rating.user_id,
+        movie_id=rating.movie_id,
+        score=rating.score,
+        created_at=rating.created_at
+    )
