@@ -854,3 +854,50 @@ async def add_favorite(
         movie_id=fav.movie_id,
         created_at=fav.created_at
     )
+
+
+@router.delete(
+    "/{movie_id}/favorites/",
+    response_model=dict,
+    summary="Remove movie from favorites",
+)
+async def remove_favorite(
+    movie_id: int,
+    db: SessionDep,
+    jwt_manager: JWTManagerDep,
+    token: str = Depends(get_token),
+) -> dict:
+    """
+    Remove a movie from the user's favorites.
+
+    Args:
+        movie_id (int): The movie's ID.
+        db (AsyncSession): The asynchronous database session.
+        jwt_manager (JWTAuthManagerInterface): JWT manager for decoding.
+        token (str): The authentication token.
+
+    Returns:
+        dict: Confirmation message.
+
+    Raises:
+        HTTPException: If not in favorites or not authenticated.
+    """
+    payload = _decode_token(token, jwt_manager)
+    user_id = payload.get("user_id")
+
+    stmt = select(FavoriteModel).where(
+        FavoriteModel.user_id == user_id,
+        FavoriteModel.movie_id == movie_id
+    )
+    result = await db.execute(stmt)
+    fav = result.scalars().first()
+    if not fav:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Movie not in favorites."
+        )
+
+    await db.delete(fav)
+    await db.commit()
+
+    return {"detail": "Movie removed from favorites."}
