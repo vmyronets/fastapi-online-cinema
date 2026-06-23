@@ -47,7 +47,8 @@ from movies.schemas import (
     CommentResponseSchema,
     CommentCreateSchema,
     RatingResponseSchema,
-    RatingCreateSchema
+    RatingCreateSchema,
+    FavoriteResponseSchema,
 )
 from src.accounts.models import (
     UserModel,
@@ -793,4 +794,63 @@ async def rate_movie(
         movie_id=rating.movie_id,
         score=rating.score,
         created_at=rating.created_at
+    )
+
+
+# ----------------------------------------------
+# Favorites
+# ----------------------------------------------
+
+@router.post(
+    "/{movie_id}/favorites/",
+    response_model=FavoriteResponseSchema,
+    summary="Add movie to favorites",
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_favorite(
+    movie_id: int,
+    db: SessionDep,
+    jwt_manager: JWTManagerDep,
+    token: str = Depends(get_token),
+) -> FavoriteResponseSchema:
+    """
+    Add a movie to the user's favorites.
+
+    Args:
+        movie_id (int): The movie's ID.
+        db (AsyncSession): The asynchronous database session.
+        jwt_manager (JWTAuthManagerInterface): JWT manager for decoding.
+        token (str): The authentication token.
+
+    Returns:
+        FavoriteResponseSchema: The created favorite entry.
+
+    Raises:
+        HTTPException: If already in favorites or not authenticated.
+    """
+    payload = _decode_token(token, jwt_manager)
+    user_id = payload.get("user_id")
+
+    # Check if already favorite.
+    stmt = select(FavoriteModel).where(
+        FavoriteModel.user_id == user_id,
+        FavoriteModel.movie_id == movie_id
+    )
+    result = await db.execute(stmt)
+    if result.scalars().first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Movie already in favorites."
+        )
+
+    fav = FavoriteModel(user_id=user_id, movie_id=movie_id)
+    db.add(fav)
+    await db.commit()
+    await db.refresh(fav)
+
+    return FavoriteResponseSchema(
+        id=fav.id,
+        user_id=fav.user_id,
+        movie_id=fav.movie_id,
+        created_at=fav.created_at
     )
