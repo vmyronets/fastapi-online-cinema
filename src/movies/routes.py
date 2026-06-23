@@ -22,7 +22,11 @@ from sqlalchemy import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from movies.models import CommentModel, RatingModel
+from movies.models import (
+    CommentModel,
+    RatingModel,
+    MovieLikeModel
+)
 from src.accounts.routes import SessionDep, JWTManagerDep
 from security.dependencies import get_token
 from security.exceptions import BaseSecurityError
@@ -49,6 +53,8 @@ from movies.schemas import (
     RatingResponseSchema,
     RatingCreateSchema,
     FavoriteResponseSchema,
+    MovieLikeResponseSchema,
+    MovieLikeCreateSchema,
 )
 from src.accounts.models import (
     UserModel,
@@ -901,3 +907,69 @@ async def remove_favorite(
     await db.commit()
 
     return {"detail": "Movie removed from favorites."}
+
+
+# ----------------------------------------------
+# Likes / Dislikes
+# ----------------------------------------------
+
+@router.post(
+    "/{movie_id}/likes/",
+    response_model=MovieLikeResponseSchema,
+    summary="Like or dislike a movie",
+    status_code=status.HTTP_201_CREATED,
+)
+async def like_movie(
+    movie_id: int,
+    db: SessionDep,
+    jwt_manager: JWTManagerDep,
+    data: MovieLikeCreateSchema,
+    token: str = Depends(get_token),
+) -> MovieLikeResponseSchema:
+    """
+    Like or dislike a movie.
+
+    Creates or updates the user's like/dislike for the movie.
+
+    Args:
+        movie_id (int): The movie's ID.
+        db (AsyncSession): The asynchronous database session.
+        jwt_manager (JWTAuthManagerInterface): JWT manager for decoding.
+        data (MovieLikeCreateSchema): Whether it's a like (True) or dislike (False).
+        token (str): The authentication token.
+
+    Returns:
+        MovieLikeResponseSchema: The created/updated like entry.
+    """
+    payload = _decode_token(token, jwt_manager)
+    user_id = payload.get("user_id")
+
+    stmt = select(MovieLikeModel).where(
+        MovieLikeModel.user_id == user_id,
+        MovieLikeModel.movie_id == movie_id
+    )
+    result = await db.execute(stmt)
+    existing = result.scalars().first()
+
+    if existing:
+        existing.is_like = data.is_like
+        await db.commit()
+        await db.refresh(existing)
+        like = existing
+    else:
+        like = MovieLikeModel(
+            user_id=user_id,
+            movie_id=movie_id,
+            is_like=data.is_like
+        )
+        db.add(like)
+        await db.commit()
+        await db.refresh(like)
+
+    return MovieLikeResponseSchema(
+        id=like.id,
+        user_id=like.user_id,
+        movie_id=like.movie_id,
+        is_like=like.is_like,
+        created_at=like.created_at
+    )
