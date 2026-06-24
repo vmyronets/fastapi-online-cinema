@@ -11,7 +11,8 @@ from fastapi import (
     APIRouter,
     HTTPException,
     status,
-    Depends, Query,
+    Depends,
+    Query
 )
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,8 +25,11 @@ from orders.models import (
     OrderStatusEnum
 )
 from src.accounts.routes import SessionDep, JWTManagerDep
-from src.orders.schemas import (OrderResponseSchema, OrderItemResponseSchema,
-                                OrderListResponseSchema, )
+from src.orders.schemas import (
+    OrderResponseSchema,
+    OrderItemResponseSchema,
+    OrderListResponseSchema
+)
 from src.security.dependencies import get_token
 from src.security.exceptions import BaseSecurityError
 from src.security.interfaces import JWTAuthManagerInterface
@@ -270,3 +274,64 @@ async def list_orders(
         page=page,
         per_page=per_page,
     )
+
+
+@router.post(
+    "/{order_id}/cancel/",
+    response_model=OrderResponseSchema,
+    summary="Cancel an order",
+)
+async def cancel_order(
+    db: SessionDep,
+    jwt_manager: JWTManagerDep,
+    order_id: int,
+    token: str = Depends(get_token),
+) -> OrderResponseSchema:
+    """
+    Cancel a pending order.
+
+    Only orders with 'pending' status can be canceled directly.
+    Paid orders require a refund request.
+
+    Args:
+        db (AsyncSession): The asynchronous database session.
+        jwt_manager (JWTAuthManagerInterface): JWT manager for decoding.
+        order_id (int): The order's ID.
+        token (str): The authentication token.
+
+    Returns:
+        OrderResponseSchema: The canceled order.
+
+    Raises:
+        HTTPException: If order not found, not owned by user, or not pending.
+    """
+    payload = _decode_token(token, jwt_manager)
+    user_id = payload.get("user_id")
+
+    order = (
+        await db.execute(
+            select(OrderModel).where(
+                OrderModel.id == order_id,
+                OrderModel.user_id == user_id))
+    ).scalars().first()
+
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found."
+        )
+
+    if order.status != OrderStatusEnum.PENDING:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Only pending orders can be canceled. "
+                "Paid orders require a refund request."
+            )
+        )
+
+    order.status = OrderStatusEnum.CANCELED
+    await db.commit()
+    await db.refresh(order)
+
+    return _build_order_response(order)
