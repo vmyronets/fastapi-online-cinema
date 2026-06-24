@@ -11,9 +11,9 @@ from fastapi import (
     APIRouter,
     HTTPException,
     status,
-    Depends
+    Depends, Query,
 )
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from cart.models import CartModel, CartItemModel
@@ -24,7 +24,8 @@ from orders.models import (
     OrderStatusEnum
 )
 from src.accounts.routes import SessionDep, JWTManagerDep
-from src.orders.schemas import OrderResponseSchema, OrderItemResponseSchema
+from src.orders.schemas import (OrderResponseSchema, OrderItemResponseSchema,
+                                OrderListResponseSchema, )
 from src.security.dependencies import get_token
 from src.security.exceptions import BaseSecurityError
 from src.security.interfaces import JWTAuthManagerInterface
@@ -212,3 +213,60 @@ async def create_order(
     await db.commit()
 
     return _build_order_response(order)
+
+
+@router.get(
+    "/",
+    response_model=OrderListResponseSchema,
+    summary="List user's orders",
+)
+async def list_orders(
+    db: SessionDep,
+    jwt_manager: JWTManagerDep,
+    token: str = Depends(get_token),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1, le=100),
+    order_status: str | None = Query(
+        None,
+        description="Filter by status: pending, paid, canceled"
+    ),
+) -> OrderListResponseSchema:
+    """
+    List the authenticated user's orders with optional status filter.
+
+    Args:
+        db (AsyncSession): The asynchronous database session.
+        jwt_manager (JWTAuthManagerInterface): JWT manager for decoding.
+        token (str): The authentication token.
+        page (int): Page number.
+        per_page (int): Items per page.
+        order_status (str, optional): Filter by order status.
+
+    Returns:
+        OrderListResponseSchema: Paginated list of orders.
+    """
+    payload = _decode_token(token, jwt_manager)
+    user_id = payload.get("user_id")
+
+    stmt = select(OrderModel).where(OrderModel.user_id == user_id)
+    if order_status:
+        stmt = stmt.where(OrderModel.status == order_status)
+
+    # Count.
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    total = (await db.execute(count_stmt)).scalar() or 0
+
+    stmt = stmt.order_by(
+        OrderModel.created_at.desc()
+    ).offset(
+        (page - 1) * per_page
+    ).limit(per_page)
+    result = await db.execute(stmt)
+    orders = result.scalars().unique().all()
+
+    return OrderListResponseSchema(
+        items=[_build_order_response(o) for o in orders],
+        total=total,
+        page=page,
+        per_page=per_page,
+    )
