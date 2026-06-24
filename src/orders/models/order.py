@@ -1,3 +1,10 @@
+"""
+Order ORM model.
+
+Represents the orders table storing user orders.
+Tracks order lifecycle through status (pending, paid, canceled).
+"""
+
 from datetime import datetime
 
 from sqlalchemy import (
@@ -8,10 +15,18 @@ from sqlalchemy import (
     func,
     ForeignKey
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+    relationship
+)
+from typing import TYPE_CHECKING
 
 from src.database.session import Base
 from src.orders.models.enums import OrderStatusEnum
+
+if TYPE_CHECKING:
+    from src.orders.models.order_item import OrderItemModel
 
 
 class OrderModel(Base):
@@ -50,6 +65,14 @@ class OrderModel(Base):
     total_amount: Mapped[float | None] = mapped_column(
         Numeric(10, 2),
         nullable=True
+    )
+
+    # One-to-many: an order can contain multiple items.
+    items: Mapped[list["OrderItemModel"]] = relationship(
+        "OrderItemModel",
+        back_populates="order",
+        lazy="selectin",
+        cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:
