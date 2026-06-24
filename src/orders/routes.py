@@ -1,0 +1,214 @@
+"""
+API routes for the orders module.
+
+Provides endpoints for creating orders from cart, listing orders,
+canceling orders, and admin order management.
+"""
+
+from typing import cast
+
+from fastapi import (
+    APIRouter,
+    HTTPException,
+    status,
+    Depends
+)
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from cart.models import CartModel, CartItemModel
+from movies.models import MovieModel
+from orders.models import (
+    OrderModel,
+    OrderItemModel,
+    OrderStatusEnum
+)
+from src.accounts.routes import SessionDep, JWTManagerDep
+from src.orders.schemas import OrderResponseSchema, OrderItemResponseSchema
+from src.security.dependencies import get_token
+from src.security.exceptions import BaseSecurityError
+from src.security.interfaces import JWTAuthManagerInterface
+
+router = APIRouter(prefix="/orders", tags=["Orders"])
+
+
+def _decode_token(
+        token: str,
+        jwt_manager: JWTAuthManagerInterface
+) -> dict:
+    """
+    Decode and validate a JWT access token.
+
+    Args:
+        token: The raw JWT token string.
+        jwt_manager: JWT manager instance for decoding.
+
+    Returns:
+        dict: The decoded token payload.
+
+    Raises:
+        HTTPException: If the token is invalid or expired.
+    """
+    try:
+        return jwt_manager.decode_access_token(token)
+    except BaseSecurityError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e)
+        )
+
+
+def _build_order_response(order: OrderModel) -> OrderResponseSchema:
+    """
+    Build an OrderResponseSchema from an OrderModel instance.
+
+    Args:
+        order: The OrderModel ORM instance.
+
+    Returns:
+        OrderResponseSchema: Serialized order.
+    """
+    return OrderResponseSchema(
+        id=order.id,
+        user_id=order.user_id,
+        created_at=order.created_at,
+        status=order.status,
+        total_amount=float(order.total_amount) if order.total_amount else None,
+        items=[
+            OrderItemResponseSchema(
+                id=item.id,
+                movie_id=item.movie_id,
+                price_at_order=float(item.price_at_order),
+            )
+            for item in order.items
+        ]
+    )
+
+
+@router.post(
+    "/",
+    response_model=OrderResponseSchema,
+    summary="Create order from cart",
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_order(
+    db: SessionDep,
+    jwt_manager: JWTManagerDep,
+    token: str = Depends(get_token),
+) -> OrderResponseSchema:
+    """
+    Create an order from the user's shopping cart.
+
+    Steps:
+    - Authenticate user.
+    - Verify cart is not empty.
+    - Exclude already purchased movies.
+    - Ensure all movies are available.
+    - Check no pending orders with the same movies exist.
+    - Create order with items and total amount.
+    - Clear the cart after order creation.
+
+    Args:
+        db (AsyncSession): The asynchronous database session.
+        jwt_manager (JWTAuthManagerInterface): JWT manager for decoding.
+        token (str): The authentication token.
+
+    Returns:
+        OrderResponseSchema: The created order.
+
+    Raises:
+        HTTPException: If cart is empty, movies unavailable, or duplicate pending order.
+    """
+    payload = _decode_token(token, jwt_manager)
+    user_id = payload.get("user_id")
+
+    # Get user's cart.
+    cart = (
+        await db.execute(
+            select(CartModel).where(CartModel.user_id == user_id))
+    ).scalars().first()
+
+    if not cart:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cart is empty."
+        )
+
+    # Get cart items.
+    cart_items = (
+        await db.execute(
+            select(CartItemModel).where(CartItemModel.cart_id == cart.id))
+    ).scalars().all()
+
+    if not cart_items:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cart is empty."
+        )
+
+    # Get movie IDs and fetch movies.
+    movie_ids = [item.movie_id for item in cart_items]
+    movies = (
+        await db.execute(
+            select(MovieModel).where(MovieModel.id.in_(movie_ids)))
+    ).scalars().all()
+    movie_map = {movie.id: movie for movie in movies}
+
+    # Filter out already purchased movies.
+    purchased_ids_result = await db.execute(
+        select(OrderItemModel.movie_id)
+        .join(OrderModel)
+        .where(
+            OrderModel.user_id == user_id,
+            OrderModel.status == OrderStatusEnum.PAID,
+            OrderItemModel.movie_id.in_(movie_ids),
+        )
+    )
+    purchased_ids = {row[0] for row in purchased_ids_result.all()}
+
+    available_items = [
+        item for item in cart_items
+        if item.movie_id in movie_map and item.movie_id not in purchased_ids
+    ]
+
+    if not available_items:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "No available movies to order. "
+                "All items are already purchased or unavailable."
+            )
+        )
+
+    # Create order.
+    total = sum(
+        float(movie_map[item.movie_id].price) for item in available_items
+    )
+    order = OrderModel(
+        user_id=user_id,
+        status=OrderStatusEnum.PENDING,
+        total_amount=total,
+    )
+    db.add(order)
+    await db.commit()
+    await db.refresh(order)
+
+    # Create order items.
+    for item in available_items:
+        movie = movie_map[item.movie_id]
+        order_item = OrderItemModel(
+            order_id=cast(int, order.id),
+            movie_id=item.movie_id,
+            price_at_order=float(movie.price),
+        )
+        db.add(order_item)
+
+    await db.commit()
+    await db.refresh(order)
+
+    # Clear cart.
+    for item in cart_items:
+        await db.delete(item)
+    await db.commit()
+
+    return _build_order_response(order)
