@@ -125,9 +125,9 @@ async def get_cart(
     - Return cart with item details including movie info.
 
     Args:
-        token (str): The authentication token.
-        jwt_manager (JWTAuthManagerInterface): JWT manager for decoding.
         db (AsyncSession): The asynchronous database session.
+        jwt_manager (JWTAuthManagerInterface): JWT manager for decoding.
+        token (str): The authentication token.
 
     Returns:
         CartResponseSchema: The user's cart with items.
@@ -150,3 +150,54 @@ async def get_cart(
         user_id=cart.user_id,
         items=item_responses
     )
+
+
+@router.delete(
+    "/items/{movie_id}/",
+    response_model=dict,
+    summary="Remove movie from cart",
+)
+async def remove_from_cart(
+    movie_id: int,
+    db: SessionDep,
+    jwt_manager: JWTManagerDep,
+    token: str = Depends(get_token),
+) -> dict:
+    """
+    Remove a movie from the shopping cart.
+
+    Args:
+        movie_id (int): The movie's ID to remove.
+        token (str): The authentication token.
+        jwt_manager (JWTAuthManagerInterface): JWT manager for decoding.
+        db (AsyncSession): The asynchronous database session.
+
+    Returns:
+        dict: Confirmation message.
+
+    Raises:
+        HTTPException: If movie not in cart.
+    """
+    payload = _decode_token(token, jwt_manager)
+    user_id = payload.get("user_id")
+    cart = await _get_or_create_cart(db, user_id)
+
+    item = (
+        await db.execute(
+            select(CartItemModel).where(
+                CartItemModel.cart_id == cart.id,
+                CartItemModel.movie_id == movie_id,
+            )
+        )
+    ).scalars().first()
+
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Movie not in cart."
+        )
+
+    await db.delete(item)
+    await db.commit()
+
+    return {"detail": "Movie removed from cart."}
