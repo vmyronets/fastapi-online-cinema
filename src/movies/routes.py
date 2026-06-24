@@ -62,6 +62,8 @@ from src.accounts.models import (
     UserGroupEnum
 )
 
+from src.orders.models import OrderItemModel
+
 router = APIRouter(prefix="/movies", tags=["Movies"])
 
 
@@ -630,6 +632,65 @@ async def update_movie(
     await db.refresh(movie)
 
     return _build_movie_detail_response(movie)
+
+
+@router.delete(
+    "/{movie_id}/",
+    response_model=dict,
+    summary="Delete a movie (moderator)",
+)
+async def delete_movie(
+    movie_id: int,
+    token: str = Depends(get_token),
+    jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Delete a movie (moderator/admin only).
+
+    Prevents deletion if the movie has been purchased by any user.
+
+    Args:
+        movie_id (int): The movie's ID.
+        token (str): The authentication token.
+        jwt_manager (JWTAuthManagerInterface): JWT manager for decoding.
+        db (AsyncSession): The asynchronous database session.
+
+    Returns:
+        dict: Confirmation message.
+
+    Raises:
+        HTTPException: If not authorized, movie not found, or movie has been purchased.
+    """
+
+    payload = _decode_token(token, jwt_manager)
+    await _require_moderator(db, payload.get("user_id"))
+
+    stmt = select(MovieModel).where(MovieModel.id == movie_id)
+    result = await db.execute(stmt)
+    movie = result.scalars().first()
+    if not movie:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Movie not found."
+        )
+
+    # Check if movie has been purchased.
+    purchase_check = (
+        select(OrderItemModel)
+        .where(OrderItemModel.movie_id == movie_id)
+    )
+    purchase_result = await db.execute(purchase_check)
+    if purchase_result.scalars().first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete a movie that has been purchased.",
+        )
+
+    await db.delete(movie)
+    await db.commit()
+
+    return {"detail": "Movie deleted successfully."}
 
 
 # ----------------------------------------------
