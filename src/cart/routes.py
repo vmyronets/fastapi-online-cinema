@@ -5,6 +5,8 @@ Provides endpoints for managing the shopping cart: viewing,
 adding/removing items, and clearing the cart.
 """
 
+from typing import cast
+
 from fastapi import (
     APIRouter,
     Depends,
@@ -14,6 +16,11 @@ from fastapi import (
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from orders.models import (
+    OrderItemModel,
+    OrderModel,
+    OrderStatusEnum
+)
 from security.dependencies import get_token
 from src.accounts.routes import SessionDep, JWTManagerDep
 from cart.models import (
@@ -22,7 +29,7 @@ from cart.models import (
 )
 from cart.schemas import (
     CartResponseSchema,
-    CartItemResponseSchema
+    CartItemResponseSchema, CartItemAddSchema,
 )
 from movies.models import MovieModel
 from security.exceptions import BaseSecurityError
@@ -150,6 +157,98 @@ async def get_cart(
         user_id=cart.user_id,
         items=item_responses
     )
+
+
+@router.post(
+    "/items/",
+    response_model=CartItemResponseSchema,
+    summary="Add movie to cart",
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_to_cart(
+    data: CartItemAddSchema,
+    db: SessionDep,
+    jwt_manager: JWTManagerDep,
+    token: str = Depends(get_token),
+) -> CartItemResponseSchema:
+    """
+    Add a movie to the shopping cart.
+
+    Steps:
+    - Authenticate user.
+    - Verify movie exists.
+    - Check movie hasn't already been purchased.
+    - Check movie isn't already in the cart.
+    - Add movie to cart.
+
+    Args:
+        data (CartItemAddSchema): Contains the movie_id to add.
+        db (AsyncSession): The asynchronous database session.
+        jwt_manager (JWTAuthManagerInterface): JWT manager for decoding.
+        token (str): The authentication token.
+
+    Returns:
+        CartItemResponseSchema: The added cart item.
+
+    Raises:
+        HTTPException: If movie not found, already purchased, or already in cart.
+    """
+    payload = _decode_token(token, jwt_manager)
+    user_id = payload.get("user_id")
+
+    # Verify movie exists.
+    movie = (
+        await db.execute(
+                select(MovieModel).where(MovieModel.id == data.movie_id))
+            ).scalars().first()
+    if not movie:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Movie not found."
+        )
+
+    # Check if movie already purchased.
+    purchased = (
+        await db.execute(
+            select(OrderItemModel)
+            .join(OrderModel)
+            .where(
+                OrderModel.user_id == user_id,
+                OrderModel.status == OrderStatusEnum.PAID,
+                OrderItemModel.movie_id == data.movie_id
+            )
+        )
+    ).scalars().first()
+    if purchased:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Movie already purchased. Repeat purchases are not allowed.",
+        )
+
+    cart = await _get_or_create_cart(db, user_id)
+
+    # Check if already in cart.
+    existing = (
+        await db.execute(
+            select(CartItemModel).where(
+                CartItemModel.cart_id == cart.id,
+                CartItemModel.movie_id == data.movie_id,
+            )
+        )
+    ).scalars().first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Movie is already in the cart.",
+        )
+
+    # Add to cart.
+    item = CartItemModel(cart_id=cast(int, cart.id), movie_id=data.movie_id)
+    db.add(item)
+    await db.commit()
+    await db.refresh(item)
+
+    return await _build_cart_item_response(db, item)
 
 
 @router.delete(
