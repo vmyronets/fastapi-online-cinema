@@ -74,7 +74,7 @@ class PaymentModel(Base):
         server_default=func.now(),
         nullable=False
     )
-    status: Mapped[str] = mapped_column(
+    status: Mapped[PaymentStatusEnum] = mapped_column(
         Enum(PaymentStatusEnum, name="payment_status_enum"),
         default=PaymentStatusEnum.SUCCESSFUL,
         nullable=False,
@@ -93,16 +93,14 @@ class PaymentModel(Base):
     user: Mapped["UserModel"] = relationship(
         "UserModel",
         back_populates="payments",
-        lazy="selectin",
-        cascade="all, delete-orphan"
+        lazy="selectin"
     )
 
     # many-to-one: each payment is associated with a single order.
     order: Mapped["OrderModel"] = relationship(
         "OrderModel",
         back_populates="payments",
-        lazy="selectin",
-        cascade="all, delete-orphan"
+        lazy="selectin"
     )
 
     # One-to-many: a payment can consist of multiple items.

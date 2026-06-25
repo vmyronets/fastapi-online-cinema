@@ -85,8 +85,7 @@ class OrderModel(Base):
     payments: Mapped[list["PaymentModel"]] = relationship(
         "PaymentModel",
         back_populates="order",
-        lazy="selectin",
-        cascade="all, delete-orphan"
+        lazy="selectin"
     )
     # many-to-one: an order can contain multiple payment items.
     payment_items: Mapped[list["PaymentItemModel"]] = relationship(

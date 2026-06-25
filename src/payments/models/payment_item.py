@@ -73,7 +73,6 @@ class PaymentItemModel(Base):
         "OrderItemModel",
         back_populates="payment_items",
         lazy="selectin",
-        cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

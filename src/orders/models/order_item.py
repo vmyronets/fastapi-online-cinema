@@ -21,6 +21,7 @@ from src.database.session import Base
 
 if TYPE_CHECKING:
     from src.orders.models.order import OrderModel
+    from src.payments.models.payment_item import PaymentItemModel
 
 
 class OrderItemModel(Base):
@@ -60,7 +61,15 @@ class OrderItemModel(Base):
 
     # Many-to-one back-reference to the order.
     order: Mapped["OrderModel"] = relationship(
-        "OrderModel", back_populates="items", lazy="selectin"
+        "OrderModel",
+        back_populates="items",
+        lazy="selectin"
+    )
+    # One-to-many: an order item can be part of multiple payments.
+    payment_items: Mapped[list["PaymentItemModel"]] = relationship(
+        "PaymentItemModel",
+        back_populates="order_item",
+        lazy="selectin",
     )
 
     def __repr__(self) -> str:
