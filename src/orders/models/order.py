@@ -28,6 +28,7 @@ from src.orders.models.enums import OrderStatusEnum
 if TYPE_CHECKING:
     from src.orders.models.order_item import OrderItemModel
     from src.payments.models.payment import PaymentModel
+    from src.payments.models.payment_item import PaymentItemModel
 
 
 class OrderModel(Base):
@@ -40,6 +41,11 @@ class OrderModel(Base):
         created_at: Timestamp of order creation.
         status: Order status (pending, paid, canceled).
         total_amount: Total cost of all items (DECIMAL(10,2)).
+
+    Relationships:
+        items: One-to-many with OrderItemModel.
+        payments: One-to-many with PaymentModel.
+        payment_items: Many-to-one with PaymentItemModel.
     """
     __tablename__ = "orders"
 
@@ -79,6 +85,13 @@ class OrderModel(Base):
     payments: Mapped[list["PaymentModel"]] = relationship(
         "PaymentModel",
         back_populates="order",
+        lazy="selectin",
+        cascade="all, delete-orphan"
+    )
+    # many-to-one: an order can contain multiple payment items.
+    payment_items: Mapped[list["PaymentItemModel"]] = relationship(
+        "PaymentItemModel",
+        back_populates="order_item",
         lazy="selectin",
         cascade="all, delete-orphan"
     )

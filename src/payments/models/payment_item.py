@@ -23,6 +23,7 @@ from src.database.session import Base
 
 if TYPE_CHECKING:
     from src.payments.models.payment import PaymentModel
+    from src.orders.models.order_item import OrderItemModel
 
 
 class PaymentItemModel(Base):
@@ -37,6 +38,7 @@ class PaymentItemModel(Base):
 
     Relationships:
         payment: Many-to-one back-reference to PaymentModel.
+        order_item: Many-to-one back-reference to OrderItemModel.
     """
     __tablename__ = "payment_items"
 
@@ -65,6 +67,13 @@ class PaymentItemModel(Base):
         "PaymentModel",
         back_populates="items",
         lazy="selectin"
+    )
+    # many-to-one: each payment item is associated with a single order item.
+    order_item: Mapped["OrderItemModel"] = relationship(
+        "OrderItemModel",
+        back_populates="payment_items",
+        lazy="selectin",
+        cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

@@ -49,6 +49,8 @@ class PaymentModel(Base):
 
     Relationships:
         items: One-to-many with PaymentItemModel.
+        user: Many-to-one with UserModel.
+        order: Many-to-one with OrderModel.
     """
     __tablename__ = "payments"
 
@@ -83,6 +85,7 @@ class PaymentModel(Base):
     )
     external_payment_id: Mapped[str | None] = mapped_column(
         String(255),
+        unique=True,
         nullable=True
     )
 
