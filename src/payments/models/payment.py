@@ -7,6 +7,7 @@ status (successful, canceled, refunded).
 """
 
 from datetime import datetime
+from decimal import Decimal
 
 from sqlalchemy import (
     Integer,
@@ -29,6 +30,8 @@ from src.payments.models.enums import PaymentStatusEnum
 
 if TYPE_CHECKING:
     from src.payments.models.payment_item import PaymentItemModel
+    from src.orders.models.order import OrderModel
+    from src.accounts.models.user import UserModel
 
 
 class PaymentModel(Base):
@@ -74,13 +77,29 @@ class PaymentModel(Base):
         default=PaymentStatusEnum.SUCCESSFUL,
         nullable=False,
     )
-    amount: Mapped[float] = mapped_column(
+    amount: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False
     )
     external_payment_id: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True
+    )
+
+    # many-to-one: each payment is linked to a specific user.
+    user: Mapped["UserModel"] = relationship(
+        "UserModel",
+        back_populates="payments",
+        lazy="selectin",
+        cascade="all, delete-orphan"
+    )
+
+    # many-to-one: each payment is associated with a single order.
+    order: Mapped["OrderModel"] = relationship(
+        "OrderModel",
+        back_populates="payments",
+        lazy="selectin",
+        cascade="all, delete-orphan"
     )
 
     # One-to-many: a payment can consist of multiple items.
