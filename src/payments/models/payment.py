@@ -20,10 +20,15 @@ from sqlalchemy import (
 from sqlalchemy.orm import (
     Mapped,
     mapped_column,
+    relationship
 )
+from typing import TYPE_CHECKING
 
 from src.database.session import Base
 from src.payments.models.enums import PaymentStatusEnum
+
+if TYPE_CHECKING:
+    from src.payments.models.payment_item import PaymentItemModel
 
 
 class PaymentModel(Base):
@@ -38,6 +43,9 @@ class PaymentModel(Base):
         status: Payment status (successful, canceled, refunded).
         amount: Total payment amount (DECIMAL(10,2)).
         external_payment_id: External transaction ID from payment provider (e.g., Stripe).
+
+    Relationships:
+        items: One-to-many with PaymentItemModel.
     """
     __tablename__ = "payments"
 
@@ -52,7 +60,9 @@ class PaymentModel(Base):
         nullable=False
     )
     order_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False
+        Integer,
+        ForeignKey("orders.id", ondelete="CASCADE"),
+        nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -71,6 +81,14 @@ class PaymentModel(Base):
     external_payment_id: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True
+    )
+
+    # One-to-many: a payment can consist of multiple items.
+    items: Mapped[list["PaymentItemModel"]] = relationship(
+        "PaymentItemModel",
+        back_populates="payment",
+        lazy="selectin",
+        cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:
