@@ -6,9 +6,10 @@ including adding/removing items and viewing cart contents.
 """
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CartItemAddSchema(BaseModel):
@@ -37,9 +38,9 @@ class CartItemResponseSchema(BaseModel):
     id: int
     movie_id: int
     movie_name: Optional[str] = None
-    movie_price: Optional[float] = None
+    movie_price: Optional[Decimal] = None
     movie_year: Optional[int] = None
-    movie_genres: list[str] = []
+    movie_genres: list[str] = Field(default_factory=list)
     added_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -56,6 +57,6 @@ class CartResponseSchema(BaseModel):
     """
     id: int
     user_id: int
-    items: list[CartItemResponseSchema] = []
+    items: list[CartItemResponseSchema] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)

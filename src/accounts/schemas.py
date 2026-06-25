@@ -9,8 +9,20 @@ Uses Pydantic v2 model_config and field validators.
 from datetime import date, datetime
 from typing import Optional
 
-from fastapi import UploadFile, File, Form
-from pydantic import BaseModel, EmailStr, Field, HttpUrl, model_validator
+from fastapi import (
+    UploadFile,
+    File,
+    Form
+)
+from pydantic import (
+    BaseModel,
+    EmailStr,
+    Field,
+    HttpUrl,
+    model_validator
+)
+
+from src.accounts.models import GenderEnum, UserGroupEnum
 
 
 # ----------------------------------------------
@@ -50,7 +62,7 @@ class UserResponseSchema(BaseModel):
     email: str
     is_active: bool
     created_at: datetime
-    group: str
+    group: UserGroupEnum
 
     model_config = {"from_attributes": True}
 
@@ -197,7 +209,7 @@ class ProfileCreateSchema:
         self,
         first_name: Optional[str] = None,
         last_name: Optional[str] = None,
-        gender: Optional[str] = None,
+        gender: Optional[GenderEnum] = None,
         date_of_birth: Optional[date] = None,
         info: Optional[str] = None,
         avatar: Optional[UploadFile] = None,
@@ -214,7 +226,7 @@ class ProfileCreateSchema:
         cls,
         first_name: Optional[str] = Form(None),
         last_name: Optional[str] = Form(None),
-        gender: Optional[str] = Form(None),
+        gender: Optional[GenderEnum] = Form(None),
         date_of_birth: Optional[date] = Form(None),
         info: Optional[str] = Form(None),
         avatar: Optional[UploadFile] = File(None),
@@ -261,7 +273,7 @@ class ProfileResponseSchema(BaseModel):
     user_id: int
     first_name: Optional[str] = None
     last_name: Optional[str] = None
-    gender: Optional[str] = None
+    gender: Optional[GenderEnum] = None
     date_of_birth: Optional[date] = None
     info: Optional[str] = None
     avatar: Optional[HttpUrl] = None
@@ -288,7 +300,7 @@ class ProfileUpdateSchema:
         self,
         first_name: Optional[str] = None,
         last_name: Optional[str] = None,
-        gender: Optional[str] = None,
+        gender: Optional[GenderEnum] = None,
         date_of_birth: Optional[date] = None,
         info: Optional[str] = None,
         avatar: Optional[UploadFile] = None,
@@ -305,7 +317,7 @@ class ProfileUpdateSchema:
         cls,
         first_name: Optional[str] = Form(None),
         last_name: Optional[str] = Form(None),
-        gender: Optional[str] = Form(None),
+        gender: Optional[GenderEnum] = Form(None),
         date_of_birth: Optional[date] = Form(None),
         info: Optional[str] = Form(None),
         avatar: Optional[UploadFile] = File(None),
@@ -347,7 +359,7 @@ class AdminUserUpdateSchema(BaseModel):
         group_name: Change user's group/role.
     """
     is_active: Optional[bool] = None
-    group_name: Optional[str] = None
+    group_name: Optional[UserGroupEnum] = None
 
 
 class MessageSchema(BaseModel):

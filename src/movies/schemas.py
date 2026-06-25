@@ -6,6 +6,7 @@ directors, certifications, comments, ratings, favorites, and likes.
 """
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
@@ -108,11 +109,11 @@ class MovieCreateSchema(BaseModel):
     meta_score: Optional[float] = None
     gross: Optional[float] = None
     description: str
-    price: float = Field(..., ge=0)
+    price: Decimal = Field(..., ge=0)
     certification_id: int
-    genre_ids: list[int] = []
-    director_ids: list[int] = []
-    star_ids: list[int] = []
+    genre_ids: list[int] = Field(default_factory=list)
+    director_ids: list[int] = Field(default_factory=list)
+    star_ids: list[int] = Field(default_factory=list)
 
 
 class MovieUpdateSchema(BaseModel):
@@ -151,9 +152,9 @@ class MovieListResponseSchema(BaseModel):
     name: str
     year: int
     imdb: float
-    price: float
+    price: Decimal = Field(..., ge=0)
     certification: Optional[str] = None
-    genres: list[str] = []
+    genres: list[str] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -170,8 +171,8 @@ class MovieDetailResponseSchema(MovieListResponseSchema):
     meta_score: Optional[float] = None
     gross: Optional[float] = None
     description: str
-    directors: list[str] = []
-    stars: list[str] = []
+    directors: list[str] = Field(default_factory=list)
+    stars: list[str] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 

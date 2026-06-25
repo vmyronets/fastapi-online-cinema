@@ -6,9 +6,12 @@ listing, and order item details.
 """
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
+from src.orders.models import OrderStatusEnum
 
 
 class OrderItemResponseSchema(BaseModel):
@@ -22,7 +25,7 @@ class OrderItemResponseSchema(BaseModel):
     """
     id: int
     movie_id: int
-    price_at_order: float
+    price_at_order: Decimal
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -42,9 +45,9 @@ class OrderResponseSchema(BaseModel):
     id: int
     user_id: int
     created_at: datetime
-    status: str
-    total_amount: Optional[float] = None
-    items: list[OrderItemResponseSchema] = []
+    status: OrderStatusEnum
+    total_amount: Optional[Decimal] = None
+    items: list[OrderItemResponseSchema] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 
