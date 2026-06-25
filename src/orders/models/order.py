@@ -27,6 +27,7 @@ from src.orders.models.enums import OrderStatusEnum
 
 if TYPE_CHECKING:
     from src.orders.models.order_item import OrderItemModel
+    from src.payments.models.payment import PaymentModel
 
 
 class OrderModel(Base):
@@ -70,6 +71,13 @@ class OrderModel(Base):
     # One-to-many: an order can contain multiple items.
     items: Mapped[list["OrderItemModel"]] = relationship(
         "OrderItemModel",
+        back_populates="order",
+        lazy="selectin",
+        cascade="all, delete-orphan"
+    )
+    # One-to-many: an order can contain multiple payments.
+    payments: Mapped[list["PaymentModel"]] = relationship(
+        "PaymentModel",
         back_populates="order",
         lazy="selectin",
         cascade="all, delete-orphan"
