@@ -5,6 +5,7 @@ Represents the payment_items table storing individual items
 paid for in a single payment. Mirrors order line items at
 the time of payment for historical accuracy.
 """
+from decimal import Decimal
 
 from sqlalchemy import (
     Integer,
@@ -54,7 +55,7 @@ class PaymentItemModel(Base):
         ForeignKey("order_items.id", ondelete="CASCADE"),
         nullable=False
     )
-    price_at_payment: Mapped[float] = mapped_column(
+    price_at_payment: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False
     )
