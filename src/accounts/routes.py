@@ -6,10 +6,22 @@ token refresh, password management, profile CRUD, and admin user management.
 """
 
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import (
+    datetime,
+    timedelta,
+    timezone
+)
 from typing import cast, Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    status,
+    BackgroundTasks,
+    Request
+)
+from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,7 +33,7 @@ from src.accounts.models import (
     PasswordResetTokenModel,
     RefreshTokenModel,
     UserGroupEnum,
-    GenderEnum,
+    GenderEnum
 )
 from src.accounts.schemas import (
     UserRegisterSchema,
@@ -39,7 +51,7 @@ from src.accounts.schemas import (
     ProfileResponseSchema,
     ProfileUpdateSchema,
     AdminUserUpdateSchema,
-    MessageSchema,
+    MessageSchema
 )
 from src.database.session import get_db
 from src.security.dependencies import (
@@ -54,18 +66,27 @@ from src.security.password import (
     verify_password,
     validate_password_complexity
 )
+from src.notifications.interfaces import EmailSenderInterface
+from src.notifications.emails import get_email_sender
 
 
 SessionDep = Annotated[AsyncSession, Depends(get_db)]
 
-JWTManagerDep = Annotated[JWTAuthManagerInterface, Depends(get_jwt_auth_manager)]
+JWTManagerDep = Annotated[
+    JWTAuthManagerInterface, Depends(get_jwt_auth_manager)
+]
+
+EmailSenderDep = Annotated[
+    EmailSenderInterface, Depends(get_email_sender)
+]
+
 
 router = APIRouter(prefix="/accounts", tags=["Accounts"])
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Helper: decode token and get user_id
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 def _decode_token(token: str, jwt_manager: JWTAuthManagerInterface) -> dict:
     """
@@ -86,7 +107,7 @@ def _decode_token(token: str, jwt_manager: JWTAuthManagerInterface) -> dict:
     except BaseSecurityError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e),
+            detail=str(e)
         )
 
 
@@ -110,7 +131,7 @@ async def _get_active_user(db: AsyncSession, user_id: int) -> UserModel:
     if not user or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found or not active.",
+            detail="User not found or not active."
         )
     return user
 
@@ -144,36 +165,43 @@ async def _check_permission(
     if not user_group or user_group.name == UserGroupEnum.USER:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You don't have permission to perform this action.",
+            detail="You don't have permission to perform this action."
         )
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Registration
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 @router.post(
     "/register/",
     response_model=UserResponseSchema,
     summary="Register a new user",
-    status_code=status.HTTP_201_CREATED,
+    status_code=status.HTTP_201_CREATED
 )
 async def register(
     data: UserRegisterSchema,
     db: SessionDep,
+    background_tasks: BackgroundTasks,
+    request: Request,
+    email_sender: EmailSenderDep
 ) -> UserResponseSchema:
     """
-    Register a new user account.
+    Register a new user account and send activation email in a background task.
 
     Steps:
     - Validate password complexity.
     - Check email uniqueness.
     - Create user with default USER group and inactive status.
     - Generate activation token (valid 24 hours).
+    - Send activation email.
 
     Args:
         data (UserRegisterSchema): Registration data with email and password.
         db (AsyncSession): The asynchronous database session.
+        background_tasks (BackgroundTasks): Background tasks manager.
+        request (Request): The incoming request object.
+        email_sender (EmailSenderInterface): Email sender interface.
 
     Returns:
         UserResponseSchema: The created user details.
@@ -186,7 +214,7 @@ async def register(
     if password_errors:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=password_errors,
+            detail=password_errors
         )
 
     # Check email uniqueness.
@@ -199,13 +227,16 @@ async def register(
         )
 
     # Get default USER group.
-    stmt_group = select(UserGroupModel).where(UserGroupModel.name == UserGroupEnum.USER)
+    stmt_group = (
+        select(UserGroupModel)
+        .where(UserGroupModel.name == UserGroupEnum.USER)
+    )
     result_group = await db.execute(stmt_group)
     group = result_group.scalars().first()
     if not group:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Default user group not found. Please contact support.",
+            detail="Default user group not found. Please contact support."
         )
 
     # Create user.
@@ -213,7 +244,7 @@ async def register(
         email=data.email,
         hashed_password=hash_password(data.password),
         is_active=False,
-        group_id=cast(int, group.id),
+        group_id=cast(int, group.id)
     )
     db.add(user)
     await db.commit()
@@ -223,23 +254,36 @@ async def register(
     activation_token = ActivationTokenModel(
         user_id=cast(int, user.id),
         token=secrets.token_urlsafe(32),
-        expires_at=datetime.now(timezone.utc) + timedelta(hours=24),
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=24)
     )
     db.add(activation_token)
     await db.commit()
+
+    # Create activation link for sending in email
+    activation_link = (
+        f"{request.base_url}/accounts/activate/"
+        f"?token={activation_token.token}"
+    )
+
+    # Send activation email in background task.
+    background_tasks.add_task(
+        email_sender.send_activation_email,
+        user.email,
+        activation_link
+    )
 
     return UserResponseSchema(
         id=user.id,
         email=user.email,
         is_active=user.is_active,
         created_at=user.created_at,
-        group=group.name,
+        group=group.name
     )
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Activation
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 @router.post(
     "/activate/",
@@ -249,6 +293,9 @@ async def register(
 async def activate_account(
     data: ActivationRequestSchema,
     db: SessionDep,
+    background_tasks: BackgroundTasks,
+    request: Request,
+    email_sender: EmailSenderDep
 ) -> MessageSchema:
     """
     Activate a user account using the activation token.
@@ -258,10 +305,14 @@ async def activate_account(
     - Verify the token has not expired.
     - Set the user's is_active flag to True.
     - Delete the used activation token.
+    - Send welcome email.
 
     Args:
         data (ActivationRequestSchema): Contains the activation token.
         db (AsyncSession): The asynchronous database session.
+        background_tasks (BackgroundTasks): Background tasks manager.
+        request (Request): The incoming request.
+        email_sender (EmailSenderDep): Email sender dependency.
 
     Returns:
         MessageSchema: Confirmation message.
@@ -272,23 +323,29 @@ async def activate_account(
     if not data.token:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Activation token is required.",
+            detail="Activation token is required."
         )
 
-    stmt = select(ActivationTokenModel).where(ActivationTokenModel.token == data.token)
+    stmt = (
+        select(ActivationTokenModel)
+        .where(ActivationTokenModel.token == data.token)
+    )
     result = await db.execute(stmt)
     activation = result.scalars().first()
 
     if not activation:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid activation token.",
+            detail="Invalid activation token."
         )
 
-    if activation.expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+    if (
+        activation.expires_at.replace(tzinfo=timezone.utc)
+        < datetime.now(timezone.utc)
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Activation token has expired. Please request a new one.",
+            detail="Activation token has expired. Please request a new one."
         )
 
     # Activate the user.
@@ -300,13 +357,72 @@ async def activate_account(
         await db.delete(activation)
         await db.commit()
 
+    login_link = f"{request.base_url}docs"
+    background_tasks.add_task(
+        email_sender.send_activation_complete_email,
+        user.email,
+        login_link
+    )
+
     return MessageSchema(detail="Account activated successfully.")
+
+
+@router.get(
+    "/activate/",
+    response_class=HTMLResponse,
+    include_in_schema=False
+)
+async def activate_account_get(
+    token: str,
+    background_tasks: BackgroundTasks,
+    request: Request,
+    email_sender: EmailSenderDep,
+    db: SessionDep
+):
+    """
+    GET-endpoint for activating an account by clicking a link in the email.
+    Returns a visible HTML page instead of a JSON response.
+
+    Args:
+        token (str): The activation token.
+        background_tasks (BackgroundTasks): Background tasks manager.
+        request (Request): The request object.
+        email_sender (EmailSenderDep): Email sender dependency.
+        db (SessionDep): The database session dependency.
+
+    Returns:
+        HTMLResponse: A HTML page with a success message.
+
+    Raises:
+        HTTPException: If the activation token is invalid or expired.
+    """
+    try:
+        await activate_account(
+            ActivationRequestSchema(token=token),
+            db,
+            background_tasks,
+            request,
+            email_sender,
+        )
+        return """
+        <html><body style="font-family: sans-serif; text-align: center; margin-top: 50px;">
+            <h2 style="color: green;">Your account has been successfully activated! 🚀</h2>
+            <p>You can now close this page and log in.</p>
+        </body></html>
+        """
+    except HTTPException as e:
+        return f"""
+        <html><body style="font-family: sans-serif; text-align: center; margin-top: 50px;">
+            <h2 style="color: red;">Activation failed! 🚨</h2>
+            <p>{e.detail}</p>
+        </body></html>
+"""
 
 
 @router.post(
     "/activate/resend/",
     response_model=MessageSchema,
-    summary="Resend activation email",
+    summary="Resend activation email"
 )
 async def resend_activation(
     data: ResendActivationSchema,
@@ -338,17 +454,20 @@ async def resend_activation(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User with this email not found.",
+            detail="User with this email not found."
         )
 
     if user.is_active:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Account is already active.",
+            detail="Account is already active."
         )
 
     # Delete existing activation token if any.
-    stmt_del = select(ActivationTokenModel).where(ActivationTokenModel.user_id == user.id)
+    stmt_del = (
+        select(ActivationTokenModel)
+        .where(ActivationTokenModel.user_id == user.id)
+    )
     result_del = await db.execute(stmt_del)
     existing = result_del.scalars().first()
     if existing:
@@ -358,7 +477,7 @@ async def resend_activation(
     new_token = ActivationTokenModel(
         user_id=cast(int, user.id),
         token=secrets.token_urlsafe(32),
-        expires_at=datetime.now(timezone.utc) + timedelta(hours=24),
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=24)
     )
     db.add(new_token)
     await db.commit()
@@ -366,9 +485,9 @@ async def resend_activation(
     return MessageSchema(detail="Activation email resent successfully.")
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Login / Logout
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 @router.post(
     "/login/",
@@ -408,13 +527,13 @@ async def login(
     if not user or not verify_password(data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password.",
+            detail="Invalid email or password."
         )
 
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is not activated. Please check your email.",
+            detail="Account is not activated. Please check your email."
         )
 
     # Generate JWT tokens.
@@ -425,14 +544,14 @@ async def login(
     refresh_token_model = RefreshTokenModel(
         user_id=cast(int, user.id),
         token=refresh_token,
-        expires_at=datetime.now(timezone.utc) + timedelta(days=7),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=7)
     )
     db.add(refresh_token_model)
     await db.commit()
 
     return TokenResponseSchema(
         access_token=access_token,
-        refresh_token=refresh_token,
+        refresh_token=refresh_token
     )
 
 
@@ -442,20 +561,18 @@ async def login(
     summary="User logout",
 )
 async def logout(
-    token: str = Depends(get_token),
-    jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
+    data: RefreshTokenSchema,
     db: AsyncSession = Depends(get_db),
 ) -> MessageSchema:
     """
-    Logout user by revoking all their refresh tokens.
+    Logout user by revoking their current refresh token.
 
     Steps:
     - Decode the access token to identify the user.
-    - Delete all refresh tokens for the user.
+    - Delete the current refresh token for the user.
 
     Args:
-        token (str): The authentication token.
-        jwt_manager (JWTAuthManagerInterface): JWT manager for decoding.
+        data: Refresh token schema.
         db (AsyncSession): The asynchronous database session.
 
     Returns:
@@ -464,23 +581,24 @@ async def logout(
     Raises:
         HTTPException: If authentication fails.
     """
-    payload = _decode_token(token, jwt_manager)
-    user_id = payload.get("user_id")
 
-    # Delete all refresh tokens for this user.
-    stmt = select(RefreshTokenModel).where(RefreshTokenModel.user_id == user_id)
+    # Delete current refresh token for this user.
+    stmt = (
+        select(RefreshTokenModel)
+        .where(RefreshTokenModel.token == data.refresh_token)
+    )
     result = await db.execute(stmt)
-    tokens = result.scalars().all()
-    for t in tokens:
-        await db.delete(t)
-    await db.commit()
+    token_obj = result.scalars().first()
+    if token_obj:
+        await db.delete(token_obj)
+        await db.commit()
 
     return MessageSchema(detail="Successfully logged out.")
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Token Refresh
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 @router.post(
     "/token/refresh/",
@@ -516,17 +634,20 @@ async def refresh_access_token(
     except BaseSecurityError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e),
+            detail=str(e)
         )
 
     # Verify token exists in database (not revoked).
-    stmt = select(RefreshTokenModel).where(RefreshTokenModel.token == data.refresh_token)
+    stmt = (
+        select(RefreshTokenModel)
+        .where(RefreshTokenModel.token == data.refresh_token)
+    )
     result = await db.execute(stmt)
     stored_token = result.scalars().first()
     if not stored_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Refresh token has been revoked.",
+            detail="Refresh token has been revoked."
         )
 
     # Generate new access token.
@@ -536,9 +657,9 @@ async def refresh_access_token(
     return AccessTokenResponseSchema(access_token=new_access_token)
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Password Management
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 @router.post(
     "/password/change/",
@@ -547,8 +668,8 @@ async def refresh_access_token(
 )
 async def change_password(
     data: ChangePasswordSchema,
+    jwt_manager: JWTManagerDep,
     token: str = Depends(get_token),
-    jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
     db: AsyncSession = Depends(get_db),
 ) -> MessageSchema:
     """
@@ -562,8 +683,8 @@ async def change_password(
 
     Args:
         data (ChangePasswordSchema): Old and new passwords.
-        token (str): The authentication token.
         jwt_manager (JWTAuthManagerInterface): JWT manager for decoding.
+        token (str): The authentication token.
         db (AsyncSession): The asynchronous database session.
 
     Returns:
@@ -578,15 +699,25 @@ async def change_password(
     if not verify_password(data.old_password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Old password is incorrect.",
+            detail="Old password is incorrect."
         )
 
     password_errors = validate_password_complexity(data.new_password)
     if password_errors:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=password_errors,
+            detail=password_errors
         )
+
+    # Delete all refresh tokens for this user.
+    stmt = (
+        select(RefreshTokenModel)
+        .where(RefreshTokenModel.user_id == user.id)
+    )
+    result = await db.execute(stmt)
+    refresh_tokens = result.scalars().all()
+    for token in refresh_tokens:
+        await db.delete(token)
 
     user.hashed_password = hash_password(data.new_password)
     await db.commit()
@@ -602,19 +733,27 @@ async def change_password(
 async def request_password_reset(
     data: PasswordResetRequestSchema,
     db: SessionDep,
+    background_tasks: BackgroundTasks,
+    request: Request,
+    email_sender: EmailSenderDep,
 ) -> MessageSchema:
     """
-    Request a password reset email.
+    Request a password reset and background
+    sending an email with link to reset password.
 
     Steps:
     - Find user by email.
     - Verify user exists and is active.
     - Delete any existing reset token.
     - Create a new password reset token.
+    - Send password reset email.
 
     Args:
         data (PasswordResetRequestSchema): Contains the user's email.
         db (AsyncSession): The asynchronous database session.
+        background_tasks (BackgroundTasks): Background tasks manager.
+        request (Request): The incoming request object.
+        email_sender (EmailSenderDep): Email sender dependency.
 
     Returns:
         MessageSchema: Confirmation message (always returns success for security).
@@ -640,13 +779,25 @@ async def request_password_reset(
         reset_token = PasswordResetTokenModel(
             user_id=cast(int, user.id),
             token=secrets.token_urlsafe(32),
-            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1)
         )
         db.add(reset_token)
         await db.commit()
 
+        reset_link = (
+            f"{request.base_url}accounts/password/"
+            f"reset/confirm/?token={reset_token.token}"
+        )
+        background_tasks.add_task(
+            email_sender.send_password_reset_email,
+            user.email,
+            reset_link
+        )
+
     # Always return success to prevent email enumeration.
-    return MessageSchema(detail="If the email is registered, a reset link has been sent.")
+    return MessageSchema(
+        detail="If the email is registered, a reset link has been sent."
+    )
 
 
 @router.post(
@@ -656,7 +807,10 @@ async def request_password_reset(
 )
 async def confirm_password_reset(
     data: PasswordResetConfirmSchema,
-    db: SessionDep,
+    background_tasks: BackgroundTasks,
+    request: Request,
+    email_sender: EmailSenderDep,
+    db: SessionDep
 ) -> MessageSchema:
     """
     Reset password using a valid reset token.
@@ -667,9 +821,13 @@ async def confirm_password_reset(
     - Validate new password complexity.
     - Update the user's password hash.
     - Delete the used reset token.
+    - Send confirmation email.
 
     Args:
         data (PasswordResetConfirmSchema): Reset token and new password.
+        background_tasks (BackgroundTasks): Background tasks.
+        request (Request): The request object.
+        email_sender (EmailSenderDep): Email sender dependency.
         db (AsyncSession): The asynchronous database session.
 
     Returns:
@@ -687,20 +845,23 @@ async def confirm_password_reset(
     if not reset:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid reset token.",
+            detail="Invalid reset token."
         )
 
-    if reset.expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+    if (
+        reset.expires_at.replace(tzinfo=timezone.utc)
+        < datetime.now(timezone.utc)
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Reset token has expired.",
+            detail="Reset token has expired."
         )
 
     password_errors = validate_password_complexity(data.new_password)
     if password_errors:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=password_errors,
+            detail=password_errors
         )
 
     # Update password.
@@ -709,15 +870,92 @@ async def confirm_password_reset(
     user = result_user.scalars().first()
     if user:
         user.hashed_password = hash_password(data.new_password)
+
+        refresh_tokens = (
+            await db.execute(
+                select(RefreshTokenModel)
+                .where(RefreshTokenModel.user_id == user.id)
+            )
+        ).scalars().all()
+        for token in refresh_tokens:
+            await db.delete(token)
+
         await db.delete(reset)
         await db.commit()
+
+        login_link = f"{request.base_url}docs"
+        background_tasks.add_task(
+            email_sender.send_password_reset_complete_email,
+            user.email,
+            login_link
+        )
 
     return MessageSchema(detail="Password reset successfully.")
 
 
-# ──────────────────────────────────────────────
+@router.get(
+    "/password/reset/confirm/",
+    response_class=HTMLResponse,
+    include_in_schema=False
+)
+async def password_reset_form_get(token: str):
+    """
+    The GET endpoint that the user is redirected to from the email.
+    It returns an HTML form that uses JavaScript to send a POST request
+    to our main JSON endpoint.
+    """
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <title>Setting a New Password</title>
+        <style>
+            body {{ font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f4f4f9; }}
+            .card {{ background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 300px; text-align: center; }}
+            input {{ width: 90%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; }}
+            button {{ width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }}
+            button:hover {{ background: #0056b3; }}
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <h3>Enter a new password</h3>
+            <input type="password" id="new_password" placeholder="New password (at least 8 characters)">
+            <button onclick="submitPassword()">Save</button>
+            <p id="message" style="color: red; font-size: 14px;"></p>
+        </div>
+        <script>
+            async function submitPassword() {{
+                const password = document.getElementById('new_password').value;
+                const msgEl = document.getElementById('message');
+                msgEl.style.color = '#333';
+                msgEl.innerText = 'Processing...';
+
+                const response = await fetch('/accounts/password/reset/confirm/', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{ token: "{token}", new_password: password }})
+                }});
+
+                const data = await response.json();
+                if (response.ok) {{
+                    msgEl.style.color = 'green';
+                    msgEl.innerText = 'Your password has been successfully changed! You can close this window.';
+                }} else {{
+                    msgEl.style.color = 'red';
+                    msgEl.innerText = typeof data.detail === 'string' ? data.detail : data.detail[0];
+                }}
+            }}
+        </script>
+    </body>
+    </html>
+    """
+
+
+# ----------------------------------------------
 # User Profile
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 @router.post(
     "/users/{user_id}/profile/",
@@ -727,8 +965,8 @@ async def confirm_password_reset(
 )
 async def create_profile(
     user_id: int,
+    jwt_manager: JWTManagerDep,
     token: str = Depends(get_token),
-    jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
     db: AsyncSession = Depends(get_db),
     s3_client: S3StorageInterface = Depends(get_s3_storage_client),
     profile_data: ProfileCreateSchema = Depends(ProfileCreateSchema.from_form),
@@ -764,7 +1002,10 @@ async def create_profile(
     user = await _get_active_user(db, user_id)
 
     # Check if profile already exists.
-    stmt_profile = select(UserProfileModel).where(UserProfileModel.user_id == user.id)
+    stmt_profile = (
+        select(UserProfileModel)
+        .where(UserProfileModel.user_id == user.id)
+    )
     result_profile = await db.execute(stmt_profile)
     if result_profile.scalars().first():
         raise HTTPException(
@@ -778,7 +1019,10 @@ async def create_profile(
         avatar_bytes = await profile_data.avatar.read()
         avatar_key = f"avatars/{user.id}_{profile_data.avatar.filename}"
         try:
-            await s3_client.upload_file(file_name=avatar_key, file_data=avatar_bytes)
+            await s3_client.upload_file(
+                file_name=avatar_key,
+                file_data=avatar_bytes
+            )
         except S3FileUploadError:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -790,7 +1034,10 @@ async def create_profile(
         user_id=cast(int, user.id),
         first_name=profile_data.first_name,
         last_name=profile_data.last_name,
-        gender=cast(GenderEnum, profile_data.gender) if profile_data.gender else None,
+        gender=cast(
+            GenderEnum,
+            profile_data.gender
+        ) if profile_data.gender else None,
         date_of_birth=profile_data.date_of_birth,
         info=profile_data.info,
         avatar=avatar_key,
@@ -823,8 +1070,8 @@ async def create_profile(
 )
 async def get_profile(
     user_id: int,
+    jwt_manager: JWTManagerDep,
     token: str = Depends(get_token),
-    jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
     db: AsyncSession = Depends(get_db),
     s3_client: S3StorageInterface = Depends(get_s3_storage_client),
 ) -> ProfileResponseSchema:
@@ -884,8 +1131,8 @@ async def get_profile(
 )
 async def update_profile(
     user_id: int,
+    jwt_manager: JWTManagerDep,
     token: str = Depends(get_token),
-    jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
     db: AsyncSession = Depends(get_db),
     s3_client: S3StorageInterface = Depends(get_s3_storage_client),
     profile_data: ProfileUpdateSchema = Depends(ProfileUpdateSchema.from_form),
@@ -944,7 +1191,10 @@ async def update_profile(
         avatar_bytes = await profile_data.avatar.read()
         avatar_key = f"avatars/{user_id}_{profile_data.avatar.filename}"
         try:
-            await s3_client.upload_file(file_name=avatar_key, file_data=avatar_bytes)
+            await s3_client.upload_file(
+                file_name=avatar_key,
+                file_data=avatar_bytes
+            )
         except S3FileUploadError:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -967,13 +1217,13 @@ async def update_profile(
         gender=profile.gender,
         date_of_birth=profile.date_of_birth,
         info=profile.info,
-        avatar=avatar_url,
+        avatar=avatar_url
     )
 
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Admin: User Management
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 @router.patch(
     "/admin/users/{user_id}/",
@@ -983,9 +1233,9 @@ async def update_profile(
 async def admin_update_user(
     user_id: int,
     data: AdminUserUpdateSchema,
+    jwt_manager: JWTManagerDep,
     token: str = Depends(get_token),
-    jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db)
 ) -> MessageSchema:
     """
     Admin endpoint to update user activation status or group.
@@ -1022,7 +1272,7 @@ async def admin_update_user(
     if not admin_group or admin_group.name != UserGroupEnum.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only administrators can perform this action.",
+            detail="Only administrators can perform this action."
         )
 
     # Find target user.
@@ -1032,7 +1282,7 @@ async def admin_update_user(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found.",
+            detail="User not found."
         )
 
     # Update activation status.
@@ -1041,15 +1291,18 @@ async def admin_update_user(
 
     # Update group.
     if data.group_name is not None:
-        stmt_group = select(UserGroupModel).where(UserGroupModel.name == data.group_name)
+        stmt_group = (
+            select(UserGroupModel)
+            .where(UserGroupModel.name == data.group_name)
+        )
         result_group = await db.execute(stmt_group)
         new_group = result_group.scalars().first()
         if not new_group:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Group '{data.group_name}' not found.",
+                detail=f"Group '{data.group_name}' not found."
             )
-        user.group_id = cast(int, new_group.id)
+        user.group_id = new_group.id
 
     await db.commit()
 
