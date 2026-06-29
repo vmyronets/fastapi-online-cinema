@@ -8,8 +8,17 @@ Deleted on logout to prevent further use.
 
 from datetime import datetime
 
-from sqlalchemy import Integer, String, DateTime, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import (
+    Integer,
+    String,
+    DateTime,
+    ForeignKey
+)
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+    relationship
+)
 
 from src.database.session import Base
 
@@ -34,16 +43,31 @@ class RefreshTokenModel(Base):
     """
     __tablename__ = "refresh_tokens"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True
     )
-    token: Mapped[str] = mapped_column(String(500), unique=True, nullable=False)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    token: Mapped[str] = mapped_column(
+        String(500),
+        unique=True,
+        nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False
+    )
 
     # Many-to-one back-reference to the user.
     user: Mapped["UserModel"] = relationship(
-        "UserModel", back_populates="refresh_tokens", lazy="selectin"
+        "UserModel",
+        back_populates="refresh_tokens",
+        lazy="selectin"
     )
 
     def __repr__(self) -> str:

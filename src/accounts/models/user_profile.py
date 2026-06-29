@@ -8,8 +8,19 @@ One-to-one relationship with the User model.
 
 from datetime import date
 
-from sqlalchemy import Integer, String, Text, Date, Enum, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import (
+    Integer,
+    String,
+    Text,
+    Date,
+    Enum,
+    ForeignKey
+)
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+    relationship
+)
 
 from src.database.session import Base
 from src.accounts.models.enums import GenderEnum
@@ -39,22 +50,41 @@ class UserProfileModel(Base):
     """
     __tablename__ = "user_profiles"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True
     )
-    first_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    last_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    avatar: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    gender: Mapped[str | None] = mapped_column(
-        Enum(GenderEnum, name="gender_enum"), nullable=True
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False
+    )
+    first_name: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True
+    )
+    last_name: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True
+    )
+    avatar: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True
+    )
+    gender: Mapped[GenderEnum | None] = mapped_column(
+        Enum(GenderEnum, name="gender_enum"),
+        nullable=True
     )
     date_of_birth: Mapped[date | None] = mapped_column(Date, nullable=True)
     info: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # One-to-one back-reference to the user.
     user: Mapped["UserModel"] = relationship(
-        "UserModel", back_populates="profile", lazy="selectin"
+        "UserModel",
+        back_populates="profile",
+        lazy="selectin"
     )
 
     def __repr__(self) -> str:

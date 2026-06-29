@@ -110,3 +110,44 @@ class S3StorageInterface(ABC):
             str: A pre-signed URL for the file.
         """
         ...
+
+
+class EmailSenderInterface(ABC):
+    """An interface for email senders."""
+
+    @abstractmethod
+    async def send_activation_email(
+            self,
+            email: str,
+            activation_link: str
+    ) -> None:
+        """Asynchronously sends an account activation email."""
+        ...
+
+    @abstractmethod
+    async def send_activation_complete_email(
+            self,
+            email: str,
+            login_link: str
+    ) -> None:
+        """
+        It sends a message confirming successful activation asynchronously.
+        """
+        ...
+
+    @abstractmethod
+    async def send_password_reset_email(
+            self,
+            email: str,
+            reset_link: str
+    ) -> None:
+        """Asynchronously sends an email requesting a password reset."""
+        ...
+
+    @abstractmethod
+    async def send_password_reset_complete_email(self, email: str, login_link: str) -> None:
+        """
+        It sends a message confirming the successful
+        password reset asynchronously.
+        """
+        ...

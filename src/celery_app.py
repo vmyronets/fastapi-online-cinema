@@ -53,16 +53,40 @@ def cleanup_expired_activation_tokens() -> str:
     from datetime import datetime, timezone
     from sqlalchemy import delete
     from src.database.session import AsyncSessionLocal
-    from src.accounts.models import ActivationTokenModel
+    from src.accounts.models import (
+        ActivationTokenModel,
+        RefreshTokenModel,
+        PasswordResetTokenModel
+    )
 
     async def _cleanup():
         async with AsyncSessionLocal() as session:
-            stmt = delete(ActivationTokenModel).where(
-                ActivationTokenModel.expires_at < datetime.now(timezone.utc)
-            )
-            result = await session.execute(stmt)
-            await session.commit()
-            return result.rowcount
+            now = datetime.now(timezone.utc)
 
-    count = asyncio.run(_cleanup())
-    return f"Deleted {count} expired activation tokens."
+            stmt_activation = delete(ActivationTokenModel).where(
+                ActivationTokenModel.expires_at < now)
+            result_activation = await session.execute(stmt_activation)
+
+            stmt_reset = delete(PasswordResetTokenModel).where(
+                PasswordResetTokenModel.expires_at < now)
+            result_reset = await session.execute(stmt_reset)
+
+            stmt_refresh = delete(RefreshTokenModel).where(
+                RefreshTokenModel.expires_at < now)
+            result_refresh = await session.execute(stmt_refresh)
+
+            await session.commit()
+
+            return (
+                result_activation.rowcount,
+                result_reset.rowcount,
+                result_refresh.rowcount
+            )
+
+    activation_del, reset_del, refresh_del = asyncio.run(_cleanup())
+    return (
+        f"The cleanup is complete. Deleted: "
+        f"{activation_del} activation tokens, "
+        f"{reset_del} password reset tokens, "
+        f"{refresh_del} refresh tokens."
+    )

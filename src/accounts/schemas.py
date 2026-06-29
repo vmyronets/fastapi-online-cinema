@@ -16,6 +16,7 @@ from fastapi import (
 )
 from pydantic import (
     BaseModel,
+    ConfigDict,
     EmailStr,
     Field,
     HttpUrl,
@@ -64,7 +65,7 @@ class UserResponseSchema(BaseModel):
     created_at: datetime
     group: UserGroupEnum
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ActivationRequestSchema(BaseModel):
@@ -278,7 +279,7 @@ class ProfileResponseSchema(BaseModel):
     info: Optional[str] = None
     avatar: Optional[HttpUrl] = None
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProfileUpdateSchema:

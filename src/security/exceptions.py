@@ -25,6 +25,11 @@ class InvalidTokenError(BaseSecurityError):
         super().__init__(message)
 
 
+class BaseEmailError(Exception):
+    """Base class for all exceptions raised by email notification module."""
+    pass
+
+
 class S3FileUploadError(Exception):
     """Raised when a file upload to S3 storage fails."""
 

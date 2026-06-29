@@ -33,17 +33,36 @@ class PasswordResetTokenModel(Base):
     """
     __tablename__ = "password_reset_tokens"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True
     )
-    token: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False
+    )
+    token: Mapped[str] = mapped_column(
+        String(255),
+        unique=True,
+        nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False
+    )
 
     # One-to-one back-reference to the user.
     user: Mapped["UserModel"] = relationship(
-        "UserModel", back_populates="password_reset_token", lazy="selectin"
+        "UserModel",
+        back_populates="password_reset_token",
+        lazy="selectin"
     )
 
     def __repr__(self) -> str:
-        return f"<PasswordResetTokenModel(id={self.id}, user_id={self.user_id})>"
+        return (
+            f"<PasswordResetTokenModel(id={self.id}, "
+            f"user_id={self.user_id})>"
+        )

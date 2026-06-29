@@ -26,9 +26,9 @@ from src.database.session import Base
 from src.orders.models.enums import OrderStatusEnum
 
 if TYPE_CHECKING:
+    from src.accounts.models.user import UserModel
     from src.orders.models.order_item import OrderItemModel
     from src.payments.models.payment import PaymentModel
-    from src.payments.models.payment_item import PaymentItemModel
 
 
 class OrderModel(Base):
@@ -45,7 +45,7 @@ class OrderModel(Base):
     Relationships:
         items: One-to-many with OrderItemModel.
         payments: One-to-many with PaymentModel.
-        payment_items: Many-to-one with PaymentItemModel.
+        user: Many-to-one with UserModel.
     """
     __tablename__ = "orders"
 
@@ -64,7 +64,7 @@ class OrderModel(Base):
         server_default=func.now(),
         nullable=False
     )
-    status: Mapped[str] = mapped_column(
+    status: Mapped[OrderStatusEnum] = mapped_column(
         Enum(OrderStatusEnum, name="order_status_enum"),
         default=OrderStatusEnum.PENDING,
         nullable=False
@@ -87,12 +87,11 @@ class OrderModel(Base):
         back_populates="order",
         lazy="selectin"
     )
-    # many-to-one: an order can contain multiple payment items.
-    payment_items: Mapped[list["PaymentItemModel"]] = relationship(
-        "PaymentItemModel",
-        back_populates="order_item",
-        lazy="selectin",
-        cascade="all, delete-orphan"
+    # many-to-one: an order can be made by a user.
+    user: Mapped["UserModel"] = relationship(
+        "UserModel",
+        back_populates="orders",
+        lazy="selectin"
     )
 
     def __repr__(self) -> str:

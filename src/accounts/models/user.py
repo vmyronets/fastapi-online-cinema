@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from src.accounts.models.activation_token import ActivationTokenModel
     from src.accounts.models.password_reset_token import PasswordResetTokenModel
     from src.accounts.models.refresh_token import RefreshTokenModel
+    from src.orders.models.order import OrderModel
     from src.payments.models.payment import PaymentModel
 
 
@@ -54,6 +55,7 @@ class UserModel(Base):
         password_reset_token: One-to-one with PasswordResetTokenModel.
         refresh_tokens: One-to-many with RefreshTokenModel.
         payments: One-to-many with PaymentModel.
+        orders: One-to-many with OrderModel.
     """
     __tablename__ = "users"
 
@@ -90,7 +92,7 @@ class UserModel(Base):
     )
     group_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("user_groups.id"), ondelete="CASCADE",
+        ForeignKey("user_groups.id", ondelete="RESTRICT"),
         nullable=False
     )
 
@@ -129,6 +131,13 @@ class UserModel(Base):
     )
     payments: Mapped[list["PaymentModel"]] = relationship(
         "PaymentModel",
+        back_populates="user",
+        lazy="selectin",
+        cascade="all, delete-orphan"
+    )
+    # One-to-many: a user can make multiple orders.
+    orders: Mapped[list["OrderModel"]] = relationship(
+        "OrderModel",
         back_populates="user",
         lazy="selectin",
         cascade="all, delete-orphan"
