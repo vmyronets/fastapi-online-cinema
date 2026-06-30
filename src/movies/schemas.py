@@ -13,7 +13,8 @@ from uuid import UUID
 from pydantic import (
     BaseModel,
     ConfigDict,
-    Field
+    Field,
+    field_validator
 )
 
 
@@ -126,7 +127,7 @@ class MovieUpdateSchema(BaseModel):
     meta_score: Optional[float] = None
     gross: Optional[float] = None
     description: Optional[str] = None
-    price: Optional[float] = Field(None, ge=0)
+    price: Optional[Decimal] = Field(None, ge=0)
     certification_id: Optional[int] = None
     genre_ids: Optional[list[int]] = None
     director_ids: Optional[list[int]] = None
@@ -156,6 +157,13 @@ class MovieListResponseSchema(BaseModel):
     certification: Optional[str] = None
     genres: list[str] = Field(default_factory=list)
 
+    @field_validator("genres", mode="before")
+    @classmethod
+    def extract_genre_names(cls, value):
+        if value and hasattr(value[0], "name"):
+            return [genre.name for genre in value]
+        return value
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -173,6 +181,17 @@ class MovieDetailResponseSchema(MovieListResponseSchema):
     description: str
     directors: list[str] = Field(default_factory=list)
     stars: list[str] = Field(default_factory=list)
+
+    @field_validator("genres", "directors", "stars", mode="before")
+    @classmethod
+    def extract_names(cls, value):
+        """
+        Retrieves the names from the list of ORM
+        objects for all associated fields.
+         """
+        if value and hasattr(value[0], "name"):
+            return [item.name for item in value]
+        return value
 
     model_config = ConfigDict(from_attributes=True)
 
