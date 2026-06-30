@@ -29,12 +29,23 @@ class GenreModel(Base):
     """
     __tablename__ = "genres"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True
+    )
+    name: Mapped[str] = mapped_column(
+        String(100),
+        unique=True,
+        nullable=False
+    )
 
     # Many-to-many with movies through the association table.
     movies: Mapped[list["MovieModel"]] = relationship(
-        "MovieModel", secondary="movie_genres", back_populates="genres", lazy="selectin"
+        "MovieModel",
+        secondary="movie_genres",
+        back_populates="genres",
+        lazy="selectin"
     )
 
     def __repr__(self) -> str:

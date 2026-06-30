@@ -45,7 +45,9 @@ class CertificationModel(Base):
     )
 
     movies: Mapped[list["MovieModel"]] = relationship(
-        "MovieModel", back_populates="certification", lazy="selectin"
+        "MovieModel",
+        back_populates="certification",
+        lazy="selectin"
     )
 
     def __repr__(self) -> str:

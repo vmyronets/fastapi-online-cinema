@@ -18,7 +18,7 @@ from fastapi import (
 from sqlalchemy import (
     select,
     func,
-    or_,
+    or_
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -54,7 +54,7 @@ from movies.schemas import (
     RatingCreateSchema,
     FavoriteResponseSchema,
     MovieLikeResponseSchema,
-    MovieLikeCreateSchema,
+    MovieLikeCreateSchema
 )
 from src.accounts.models import (
     UserModel,
@@ -641,9 +641,9 @@ async def update_movie(
 )
 async def delete_movie(
     movie_id: int,
+    db: SessionDep,
+    jwt_manager: JWTManagerDep,
     token: str = Depends(get_token),
-    jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
-    db: AsyncSession = Depends(get_db),
 ) -> dict:
     """
     Delete a movie (moderator/admin only).
@@ -652,9 +652,9 @@ async def delete_movie(
 
     Args:
         movie_id (int): The movie's ID.
-        token (str): The authentication token.
-        jwt_manager (JWTAuthManagerInterface): JWT manager for decoding.
         db (AsyncSession): The asynchronous database session.
+        jwt_manager (JWTAuthManagerInterface): JWT manager for decoding.
+        token (str): The authentication token.
 
     Returns:
         dict: Confirmation message.
