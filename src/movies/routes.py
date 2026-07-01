@@ -4,9 +4,8 @@ API routes for the movies module.
 Provides endpoints for browsing movies, CRUD operations (moderator),
 genres, comments, ratings, favorites, and likes/dislikes.
 """
-import math
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, cast
 
 from fastapi import (
     APIRouter,
@@ -18,8 +17,7 @@ from fastapi import (
 
 from sqlalchemy import (
     select,
-    func,
-    or_
+    func
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -47,6 +45,7 @@ from movies.schemas import (
     PaginatedResponseSchema,
     GenreResponseSchema,
     GenreCreateSchema,
+    GenreUpdateSchema,
     MovieCreateSchema,
     MovieUpdateSchema,
     CommentResponseSchema,
@@ -309,10 +308,10 @@ async def create_genre(
     Create a new genre (moderator/admin only).
 
     Args:
+        db (AsyncSession): The asynchronous database session.
+        jwt_manager (JWTAuthManagerInterface): JWT manager for decoding.
         data (GenreCreateSchema): Genre data.
         token (str): The authentication token.
-        jwt_manager (JWTAuthManagerInterface): JWT manager for decoding.
-        db (AsyncSession): The asynchronous database session.
 
     Returns:
         GenreResponseSchema: The created genre.
@@ -321,7 +320,7 @@ async def create_genre(
         HTTPException: If not authorized or genre already exists.
     """
     payload = _decode_token(token, jwt_manager)
-    await _require_moderator(db, payload.get("user_id"))
+    await _require_moderator(db, cast(int, payload.get("user_id")))
 
     genre = GenreModel(name=data.name)
     db.add(genre)
@@ -329,6 +328,65 @@ async def create_genre(
     await db.refresh(genre)
 
     return GenreResponseSchema(id=genre.id, name=genre.name, movie_count=0)
+
+
+@router.patch(
+    "/genres/{genre_id}/",
+    response_model=GenreResponseSchema,
+    summary="Update a genre (moderator)"
+)
+async def update_genre(
+    genre_id: int,
+    db: SessionDep,
+    jwt_manager: JWTManagerDep,
+    data: GenreUpdateSchema,
+    token: str = Depends(get_token)
+) -> GenreResponseSchema:
+    """
+    Update an existing genre name (moderator/admin only).
+
+    Args:
+        genre_id (int): The genre's ID.
+        db (AsyncSession): The asynchronous database session.
+        jwt_manager (JWTAuthManagerInterface): JWT manager for decoding.
+        data (GenreUpdateSchema): New genre name.
+        token (str): The authentication token.
+
+    Returns:
+        GenreResponseSchema: The updated genre.
+
+    Raises:
+        HTTPException: If not authorized, genre not found, or name conflicts.
+    """
+    payload = _decode_token(token, jwt_manager)
+    await _require_moderator(db, cast(int, payload.get("user_id")))
+
+    stmt = select(GenreModel).where(GenreModel.id == genre_id)
+    result = await db.execute(stmt)
+    genre = result.scalars().first()
+    if not genre:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Genre not found."
+        )
+    # Update genre name if provided
+    if data.name:
+        genre.name = data.name
+
+    await db.commit()
+    await db.refresh(genre)
+
+    # Count the number of movies in this genre after the update
+    count_stmt = select(func.count(movie_genres.c.movie_id)).where(
+        movie_genres.c.genre_id == genre_id
+    )
+    movie_count = (await db.execute(count_stmt)).scalar() or 0
+
+    return GenreResponseSchema(
+        id=genre.id,
+        name=genre.name,
+        movie_count=movie_count
+    )
 
 
 # ----------------------------------------------
@@ -485,7 +543,7 @@ async def create_movie(
         HTTPException: If not authorized or certification not found.
     """
     payload = _decode_token(token, jwt_manager)
-    await _require_moderator(db, payload.get("user_id"))
+    await _require_moderator(db, cast(int, payload.get("user_id")))
 
     # Verify certification exists.
     cert = (
@@ -579,7 +637,7 @@ async def update_movie(
         HTTPException: If not authorized or movie not found.
     """
     payload = _decode_token(token, jwt_manager)
-    await _require_moderator(db, payload.get("user_id"))
+    await _require_moderator(db, cast(int, payload.get("user_id")))
 
     stmt = select(MovieModel).where(MovieModel.id == movie_id)
     result = await db.execute(stmt)
@@ -667,7 +725,7 @@ async def delete_movie(
     """
 
     payload = _decode_token(token, jwt_manager)
-    await _require_moderator(db, payload.get("user_id"))
+    await _require_moderator(db, cast(int, payload.get("user_id")))
 
     stmt = select(MovieModel).where(MovieModel.id == movie_id)
     result = await db.execute(stmt)
@@ -735,7 +793,7 @@ async def create_comment(
         HTTPException: If not authenticated or movie not found.
     """
     payload = _decode_token(token, jwt_manager)
-    user_id = payload.get("user_id")
+    user_id = cast(int, payload.get("user_id"))
 
     comment = CommentModel(
         user_id=user_id,
@@ -899,7 +957,7 @@ async def add_favorite(
         HTTPException: If already in favorites or not authenticated.
     """
     payload = _decode_token(token, jwt_manager)
-    user_id = payload.get("user_id")
+    user_id = cast(int, payload.get("user_id"))
 
     # Check if already favorite.
     stmt = select(FavoriteModel).where(
@@ -1006,7 +1064,7 @@ async def like_movie(
         MovieLikeResponseSchema: The created/updated like entry.
     """
     payload = _decode_token(token, jwt_manager)
-    user_id = payload.get("user_id")
+    user_id = cast(int, payload.get("user_id"))
 
     stmt = select(MovieLikeModel).where(
         MovieLikeModel.user_id == user_id,

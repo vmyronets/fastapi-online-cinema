@@ -65,7 +65,7 @@ class MovieModel(Base):
             "year",
             "time",
             name="uq_movie_name_year_time"
-        )
+        ),
     )
 
     id: Mapped[int] = mapped_column(

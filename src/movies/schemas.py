@@ -37,7 +37,7 @@ class GenreResponseSchema(GenreCreateSchema):
 
 class GenreUpdateSchema(GenreCreateSchema):
     """Schema for updating a genre."""
-    name: str = Field(..., min_length=1, max_length=100)
+    pass
 
 
 # ----------------------------------------------
