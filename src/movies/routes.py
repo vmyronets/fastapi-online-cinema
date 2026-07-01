@@ -404,19 +404,12 @@ async def list_favorites(
         sort_order=sort_order
     )
 
-    count_stmt = select(func.count()).select_from(stmt.subquery())
-    total = (await db.execute(count_stmt)).scalar() or 0
-
-    stmt = stmt.offset((page - 1) * per_page).limit(per_page)
-    result = await db.execute(stmt)
-    movies = result.scalars().unique().all()
-
-    return PaginatedResponseSchema(
-        items=[_build_movie_list_response(m) for m in movies],
-        total=total,
+    return await get_paginated_response(
+        db=db,
+        stmt=stmt,
         page=page,
         per_page=per_page,
-        pages=math.ceil(total / per_page) if per_page else 0
+        transform_item=_build_movie_list_response
     )
 
 
