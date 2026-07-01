@@ -56,6 +56,11 @@ class StarResponseSchema(StarCreateSchema):
     model_config = ConfigDict(from_attributes=True)
 
 
+class StarUpdateSchema(StarCreateSchema):
+    """Schema for updating a star."""
+    pass
+
+
 # ----------------------------------------------
 # Director
 # ----------------------------------------------
