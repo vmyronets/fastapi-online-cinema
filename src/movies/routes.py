@@ -5,6 +5,7 @@ Provides endpoints for browsing movies, CRUD operations (moderator),
 genres, comments, ratings, favorites, and likes/dislikes.
 """
 import math
+from decimal import Decimal
 from typing import Optional
 
 from fastapi import (
@@ -56,6 +57,10 @@ from movies.schemas import (
     MovieLikeResponseSchema,
     MovieLikeCreateSchema
 )
+from src.movies.services import (
+    apply_movie_filters_and_sort,
+    get_paginated_response
+)
 from src.accounts.models import (
     UserModel,
     UserGroupModel,
@@ -90,7 +95,7 @@ def _decode_token(token: str, jwt_manager: JWTAuthManagerInterface) -> dict:
     except BaseSecurityError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e),
+            detail=str(e)
         )
 
 
@@ -133,9 +138,9 @@ def _build_movie_list_response(movie: MovieModel) -> MovieListResponseSchema:
         name=movie.name,
         year=movie.year,
         imdb=movie.imdb,
-        price=float(movie.price),
+        price=Decimal(movie.price),
         certification=movie.certification.name if movie.certification else None,
-        genres=[g.name for g in movie.genres],
+        genres=[genre.name for genre in movie.genres]
     )
 
 
@@ -162,7 +167,7 @@ def _build_movie_detail_response(
         meta_score=movie.meta_score,
         gross=movie.gross,
         description=movie.description,
-        price=float(movie.price),
+        price=Decimal(movie.price),
         certification=movie.certification.name if movie.certification else None,
         genres=[genre.name for genre in movie.genres],
         directors=[director.name for director in movie.directors],
@@ -204,7 +209,7 @@ async def list_movies(
         search: Optional[str] = Query(
             None,
             description="Search by title, description, actor, or director"
-        ),
+        )
 ) -> PaginatedResponseSchema:
     """
     Browse the movie catalog with pagination, filtering, sorting, and search.
@@ -229,54 +234,24 @@ async def list_movies(
     Returns:
         PaginatedResponseSchema: Paginated list of movies.
     """
-    stmt = select(MovieModel)
+    base_stmt = select(MovieModel)
 
-    # Apply filters.
-    if year:
-        stmt = stmt.where(MovieModel.year == year)
-    if min_imdb is not None:
-        stmt = stmt.where(MovieModel.imdb >= min_imdb)
-    if genre:
-        stmt = stmt.join(MovieModel.genres).where(GenreModel.name == genre)
+    stmt = apply_movie_filters_and_sort(
+        stmt=base_stmt,
+        year=year,
+        min_imdb=min_imdb,
+        genre=genre,
+        search=search,
+        sort_by=sort_by,
+        sort_order=sort_order
+    )
 
-    # Apply search.
-    if search:
-        search_pattern = f"%{search}%"
-        stmt = stmt.where(
-            or_(
-                MovieModel.name.ilike(search_pattern),
-                MovieModel.description.ilike(search_pattern),
-            )
-        )
-
-    # Count total results.
-    count_stmt = select(func.count()).select_from(stmt.subquery())
-    total = (await db.execute(count_stmt)).scalar() or 0
-
-    # Apply sorting.
-    sort_column = {
-        "price": MovieModel.price,
-        "year": MovieModel.year,
-        "imdb": MovieModel.imdb,
-        "name": MovieModel.name,
-    }.get(sort_by, MovieModel.id)
-
-    if sort_order == "desc":
-        stmt = stmt.order_by(sort_column.desc())
-    else:
-        stmt = stmt.order_by(sort_column.asc())
-
-    # Apply pagination.
-    stmt = stmt.offset((page - 1) * per_page).limit(per_page)
-    result = await db.execute(stmt)
-    movies = result.scalars().unique().all()
-
-    return PaginatedResponseSchema(
-        items=[_build_movie_list_response(m) for m in movies],
-        total=total,
+    return await get_paginated_response(
+        db=db,
+        stmt=stmt,
         page=page,
         per_page=per_page,
-        pages=math.ceil(total / per_page) if per_page else 0,
+        transform_item=_build_movie_list_response
     )
 
 
@@ -287,10 +262,10 @@ async def list_movies(
 @router.get(
     "/genres/",
     response_model=list[GenreResponseSchema],
-    summary="List all genres with movie counts",
+    summary="List all genres with movie counts"
 )
 async def list_genres(
-        db: SessionDep,
+        db: SessionDep
 ) -> list[GenreResponseSchema]:
     """
     List all genres with the count of movies in each.
@@ -322,13 +297,13 @@ async def list_genres(
     "/genres/",
     response_model=GenreResponseSchema,
     summary="Create a genre (moderator)",
-    status_code=status.HTTP_201_CREATED,
+    status_code=status.HTTP_201_CREATED
 )
 async def create_genre(
         db: SessionDep,
         jwt_manager: JWTManagerDep,
         data: GenreCreateSchema,
-        token: str = Depends(get_token),
+        token: str = Depends(get_token)
 ) -> GenreResponseSchema:
     """
     Create a new genre (moderator/admin only).
@@ -363,7 +338,7 @@ async def create_genre(
 @router.get(
     "/favorites/",
     response_model=PaginatedResponseSchema,
-    summary="List user's favorite movies",
+    summary="List user's favorite movies"
 )
 async def list_favorites(
         db: SessionDep,
@@ -371,6 +346,25 @@ async def list_favorites(
         token: str = Depends(get_token),
         page: int = Query(1, ge=1),
         per_page: int = Query(10, ge=1, le=100),
+        year: Optional[int] = Query(
+            None, description="Filter by release year"
+        ),
+        min_imdb: Optional[float] = Query(
+            None, ge=0, le=10, description="Minimum IMDb rating"
+        ),
+        genre: Optional[str] = Query(
+            None, description="Filter by genre name"
+        ),
+        sort_by: Optional[str] = Query(
+            None, description="Sort field: price, year, imdb, name"
+        ),
+        sort_order: Optional[str] = Query(
+            "asc", description="Sort order: asc or desc"
+        ),
+        search: Optional[str] = Query(
+            None,
+            description="Search by title, description, actor, or director"
+        )
 ) -> PaginatedResponseSchema:
     """
     List the authenticated user's favorite movies with pagination.
@@ -381,6 +375,12 @@ async def list_favorites(
         token (str): The authentication token.
         page (int): Page number.
         per_page (int): Items per page.
+        year (Optional[int]): Filter by release year.
+        min_imdb (Optional[float]): Minimum IMDb rating.
+        genre (Optional[str]): Filter by genre name.
+        sort_by (Optional[str]): Sort field: price, year, imdb, name.
+        sort_order (Optional[str]): Sort order: asc or desc.
+        search (Optional[str]): Search by title, description, actor, or director.
 
     Returns:
         PaginatedResponseSchema: Paginated list of favorite movies.
@@ -388,10 +388,20 @@ async def list_favorites(
     payload = _decode_token(token, jwt_manager)
     user_id = payload.get("user_id")
 
-    stmt = (
+    # Base query to join with FavoriteModel.
+    base_stmt = (
         select(MovieModel)
         .join(FavoriteModel, FavoriteModel.movie_id == MovieModel.id)
         .where(FavoriteModel.user_id == user_id)
+    )
+    stmt = apply_movie_filters_and_sort(
+        stmt=base_stmt,
+        year=year,
+        min_imdb=min_imdb,
+        genre=genre,
+        search=search,
+        sort_by=sort_by,
+        sort_order=sort_order
     )
 
     count_stmt = select(func.count()).select_from(stmt.subquery())
@@ -406,7 +416,7 @@ async def list_favorites(
         total=total,
         page=page,
         per_page=per_page,
-        pages=math.ceil(total / per_page) if per_page else 0,
+        pages=math.ceil(total / per_page) if per_page else 0
     )
 
 

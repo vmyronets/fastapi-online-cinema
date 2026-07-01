@@ -73,7 +73,7 @@ class MovieModel(Base):
         primary_key=True,
         autoincrement=True
     )
-    uuid: Mapped[str] = mapped_column(
+    uuid: Mapped[UUID] = mapped_column(
         UUID(as_uuid=True),
         default=uuid.uuid4,
         unique=True,
