@@ -389,6 +389,47 @@ async def update_genre(
     )
 
 
+@router.delete(
+    "/genres/{genre_id}/",
+    response_model=dict,
+    summary="Delete a genre (moderator)"
+)
+async def delete_genre(
+    genre_id: int,
+    db: SessionDep,
+    jwt_manager: JWTManagerDep,
+    token: str = Depends(get_token)
+) -> dict:
+    """
+    Delete a genre (moderator/admin only).
+
+    Args:
+        genre_id (int): The genre's ID.
+        db (AsyncSession): The asynchronous database session.
+        jwt_manager (JWTManager): The JWT manager for decoding.
+        token (str): The authentication token.
+
+    Returns:
+        dict: Confirmation message.
+
+    Raises:
+        HTTPException: If not authorized or genre not found.
+    """
+    payload = _decode_token(token, jwt_manager)
+    await _require_moderator(db, cast(int, payload.get("user_id")))
+
+    stmt = select(GenreModel).where(GenreModel.id == genre_id)
+    genre = await db.scalar(stmt)
+    if not genre:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Genre not found."
+        )
+    await db.delete(genre)
+    await db.commit()
+    return {"detail": "Genre deleted successfully."}
+
+
 # ----------------------------------------------
 # Favorites (must be before /{movie_id}/ to avoid path conflicts)
 # ----------------------------------------------
@@ -891,7 +932,7 @@ async def rate_movie(
         HTTPException: If not authenticated.
     """
     payload = _decode_token(token, jwt_manager)
-    user_id = payload.get("user_id")
+    user_id = cast(int, payload.get("user_id"))
 
     # Check for existing rating.
     stmt = select(RatingModel).where(
