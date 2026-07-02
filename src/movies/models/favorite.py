@@ -38,7 +38,7 @@ class FavoriteModel(Base):
             "user_id",
             "movie_id",
             name="uq_favorite_user_movie"
-        )
+        ),
     )
 
     id: Mapped[int] = mapped_column(
