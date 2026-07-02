@@ -67,3 +67,39 @@ class EmailSenderInterface(ABC):
             login_link (str): The login link to include in the email.
         """
         ...
+
+    @abstractmethod
+    async def send_comment_reply_email(
+            self,
+            email: str,
+            movie_title: str,
+            replier_name: str,
+            comment_content: str
+    ) -> None:
+        """
+        Asynchronously send an email notifying a user of a reply to their comment.
+
+        Args:
+            email (str): The recipient's email address.
+            movie_title (str): The title of the movie.
+            replier_name (str): The name of the user who replied.
+            comment_content (str): The content of the comment that was replied to.
+        """
+        ...
+
+    @abstractmethod
+    async def send_comment_like_email(
+            self,
+            email: str,
+            movie_title: str,
+            comment_preview: str
+    ) -> None:
+        """
+        Asynchronously send an email notifying a user of a like on their comment.
+
+        Args:
+            email (str): The recipient's email address.
+            movie_title (str): The title of the movie.
+            comment_preview (str): A preview of the comment that was liked.
+        """
+        ...
