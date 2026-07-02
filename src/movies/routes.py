@@ -1304,3 +1304,47 @@ async def update_star(
     await db.refresh(star)
 
     return StarResponseSchema(id=star.id, name=star.name)
+
+
+@router.delete(
+    "/stars/{star_id}/",
+    response_model=dict,
+    summary="Delete a star (moderator)",
+)
+async def delete_star(
+        star_id: int,
+        db: SessionDep,
+        jwt_manager: JWTManagerDep,
+        token: str = Depends(get_token),
+) -> dict:
+    """
+    Delete a star/actor (moderator/admin only).
+
+    Args:
+        star_id (int): The star's ID.
+        db (AsyncSession): The asynchronous database session.
+        jwt_manager (JWTAuthManagerInterface): JWT manager for decoding.
+        token (str): The authentication token.
+
+    Returns:
+        dict: Confirmation message.
+
+    Raises:
+        HTTPException: If not authorized or star not found.
+    """
+    payload = _decode_token(token, jwt_manager)
+    await _require_moderator(db, cast(int, payload.get("user_id")))
+
+    stmt = select(StarModel).where(StarModel.id == star_id)
+    result = await db.execute(stmt)
+    star = result.scalars().first()
+    if not star:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Star not found."
+        )
+
+    await db.delete(star)
+    await db.commit()
+
+    return {"detail": "Star deleted successfully."}
