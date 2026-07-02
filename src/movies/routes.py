@@ -1220,3 +1220,38 @@ async def get_star(
             detail="Star not found."
         )
     return StarResponseSchema(id=star.id, name=star.name)
+
+
+@router.post(
+    "/stars/",
+    response_model=StarResponseSchema,
+    summary="Create a star (moderator)",
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_star(
+        db: SessionDep,
+        jwt_manager: JWTManagerDep,
+        data: StarCreateSchema,
+        token: str = Depends(get_token),
+) -> StarResponseSchema:
+    """
+    Create a new star/actor entry (moderator/admin only).
+
+    Args:
+        db (AsyncSession): The asynchronous database session.
+        jwt_manager (JWTAuthManagerInterface): JWT manager for decoding.
+        data (StarCreateSchema): Actor data.
+        token (str): The authentication token.
+
+    Returns:
+        StarResponseSchema: The created star.
+    """
+    payload = _decode_token(token, jwt_manager)
+    await _require_moderator(db, cast(int, payload.get("user_id")))
+
+    star = StarModel(name=data.name)
+    db.add(star)
+    await db.commit()
+    await db.refresh(star)
+
+    return StarResponseSchema(id=star.id, name=star.name)
