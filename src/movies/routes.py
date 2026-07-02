@@ -12,7 +12,8 @@ from fastapi import (
     HTTPException,
     status,
     Query,
-    Depends
+    Depends,
+    BackgroundTasks
 )
 
 from sqlalchemy import (
@@ -26,6 +27,7 @@ from movies.models import (
     RatingModel,
     MovieLikeModel
 )
+from notifications import EmailSenderInterface
 from src.accounts.routes import SessionDep, JWTManagerDep
 from security.dependencies import get_token
 from security.exceptions import BaseSecurityError
@@ -54,18 +56,24 @@ from movies.schemas import (
     RatingCreateSchema,
     FavoriteResponseSchema,
     MovieLikeResponseSchema,
-    MovieLikeCreateSchema, StarResponseSchema, StarUpdateSchema,
+    MovieLikeCreateSchema,
+    StarResponseSchema,
+    StarUpdateSchema,
     StarCreateSchema,
+    CommentLikeResponseSchema,
+    CommentLikeCreateSchema
 )
 from src.movies.services import (
     apply_movie_filters_and_sort,
-    get_paginated_response
+    get_paginated_response,
 )
 from src.accounts.models import (
     UserModel,
     UserGroupModel,
     UserGroupEnum
 )
+
+from src.notifications.emails import get_email_sender
 
 from src.orders.models import OrderItemModel
 
@@ -811,7 +819,9 @@ async def create_comment(
     db: SessionDep,
     jwt_manager: JWTManagerDep,
     data: CommentCreateSchema,
+    background_tasks: BackgroundTasks,
     token: str = Depends(get_token),
+    email_sender: EmailSenderInterface = Depends(get_email_sender),
 ) -> CommentResponseSchema:
     """
     Add a comment to a movie.
@@ -826,7 +836,9 @@ async def create_comment(
         db (AsyncSession): The asynchronous database session.
         jwt_manager (JWTAuthManagerInterface): JWT manager for decoding.
         data (CommentCreateSchema): Comment content and optional parent_id.
+        background_tasks (BackgroundTasks): Background tasks manager.
         token (str): The authentication token.
+        email_sender (EmailSenderInterface): Email sender for notifications.
 
     Returns:
         CommentResponseSchema: The created comment.
@@ -846,6 +858,34 @@ async def create_comment(
     db.add(comment)
     await db.commit()
     await db.refresh(comment)
+
+    # Check if this is a reply to another comment
+    if data.parent_id:
+        # Make a single efficient query to retrieve the email
+        # address of the parent comment's author and the movie title
+        stmt = (
+            select(UserModel.email, MovieModel.name)
+            .join(CommentModel, CommentModel.user_id == UserModel.id)
+            .join(MovieModel, CommentModel.movie_id == MovieModel.id)
+            .where(CommentModel.id == data.parent_id)
+        )
+        result = (await db.execute(stmt)).first()
+
+        # Get the name of the person who answers
+        replier = await db.scalar(
+            select(UserModel).where(UserModel.id == user_id))
+
+        if result and result.email and replier:
+            parent_email, movie_title = result.email, result.name
+
+            # Add an email send task to BackgroundTasks
+            background_tasks.add_task(
+                email_sender.send_comment_reply_email,
+                email=parent_email,
+                movie_title=movie_title,
+                replier_name=replier.email,
+                comment_content=comment.content
+            )
 
     return CommentResponseSchema(
         id=comment.id,
