@@ -39,6 +39,7 @@ from src.movies.models import (
     GenreModel,
     MovieModel,
     StarModel,
+    CommentLikeModel,
     movie_genres
 )
 from movies.schemas import (
@@ -893,8 +894,89 @@ async def create_comment(
         movie_id=comment.movie_id,
         content=comment.content,
         parent_id=comment.parent_id,
-        created_at=comment.created_at,
+        created_at=comment.created_at
     )
+
+
+@router.post(
+    "/comments/{comment_id}/likes/",
+    response_model=CommentLikeResponseSchema,
+    summary="Like or dislike a comment",
+    status_code=status.HTTP_201_CREATED,
+)
+async def like_comment(
+        comment_id: int,
+        db: SessionDep,
+        jwt_manager: JWTManagerDep,
+        data: CommentLikeCreateSchema,
+        background_tasks: BackgroundTasks,
+        email_sender: EmailSenderInterface = Depends(get_email_sender),
+        token: str = Depends(get_token),
+) -> CommentLikeResponseSchema:
+
+    payload = _decode_token(token, jwt_manager)
+    user_id = cast(int, payload.get("user_id"))
+
+    # Find the comment and its author
+    stmt_comment = select(CommentModel).where(CommentModel.id == comment_id)
+    comment = (await db.execute(stmt_comment)).scalars().first()
+
+    if not comment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Comment not found."
+        )
+
+    # Check whether the user has already liked or disliked this comment
+    stmt_like = select(CommentLikeModel).where(
+        CommentLikeModel.user_id == user_id,
+        CommentLikeModel.comment_id == comment_id
+    )
+    existing_like = (await db.execute(stmt_like)).scalars().first()
+
+    if existing_like:
+        existing_like.is_like = data.is_like
+        like_obj = existing_like
+    else:
+        like_obj = CommentLikeModel(
+            user_id=user_id,
+            comment_id=comment_id,
+            is_like=data.is_like
+        )
+        db.add(like_obj)
+
+    await db.commit()
+    await db.refresh(like_obj)
+
+    # We send a notification ONLY if it's a like (not a dislike)
+    # and the user doesn't like their own comment
+    if data.is_like and comment.user_id != user_id:
+        # We're looking for the commenter's email
+        # address and the title of the movie
+        stmt_user_movie = (
+            select(UserModel.email, MovieModel.name)
+            .join(MovieModel, MovieModel.id == comment.movie_id)
+            .where(UserModel.id == comment.user_id)
+        )
+        result = (await db.execute(stmt_user_movie)).first()
+
+        if result and result.email:
+            author_email = result.email
+            movie_title = result.name
+
+            # We generate a short preview of the comment for
+            # the email (for example, the first 50 characters)
+            preview = comment.content[:50] + "..." if len(
+                comment.content) > 50 else comment.content
+
+            background_tasks.add_task(
+                email_sender.send_comment_like_email,
+                email=author_email,
+                movie_title=movie_title,
+                comment_preview=preview
+            )
+
+    return CommentLikeResponseSchema.model_validate(like_obj)
 
 
 @router.get(

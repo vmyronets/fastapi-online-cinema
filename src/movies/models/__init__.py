@@ -19,6 +19,7 @@ from src.movies.models.favorite import FavoriteModel
 from src.movies.models.rating import RatingModel
 from src.movies.models.comment import CommentModel
 from src.movies.models.movie_like import MovieLikeModel
+from src.movies.models.comment_like import CommentLikeModel
 
 __all__ = [
     "GenreModel",
@@ -33,4 +34,5 @@ __all__ = [
     "RatingModel",
     "CommentModel",
     "MovieLikeModel",
+    "CommentLikeModel"
 ]
