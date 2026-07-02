@@ -195,6 +195,25 @@ class EmailSender(EmailSenderInterface):
             html_content
         )
 
+    async def send_comment_like_email(
+            self,
+            email: str,
+            movie_title: str,
+            comment_preview: str
+    ) -> None:
+        template = self._env.get_template(self._comment_like_template)
+        html_content = template.render(
+            movie_title=movie_title,
+            comment_preview=comment_preview
+        )
+        await self._send_email(
+            email,
+            f"You have received a like "
+            f"to your comment on {movie_title}",
+            html_content
+        )
+
+
 # --------------------------------------------------
 # FastAPI dependencies for the notifications module.
 # --------------------------------------------------
