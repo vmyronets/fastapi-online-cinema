@@ -39,10 +39,10 @@ class PaginatedResponseSchema(BaseModel):
     per_page: int
     pages: int
 
+
 # ----------------------------------------------
 # Genre
 # ----------------------------------------------
-
 
 class GenreCreateSchema(BaseModel):
     """Schema for creating a genre."""

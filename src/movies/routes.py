@@ -1187,3 +1187,36 @@ async def list_stars(
             name=star.name
         )
     )
+
+
+@router.get(
+    "/stars/{star_id}/",
+    response_model=StarResponseSchema,
+    summary="Get star details",
+)
+async def get_star(
+        star_id: int,
+        db: SessionDep,
+) -> StarResponseSchema:
+    """
+    Get details of a specific star/actor by ID.
+
+    Args:
+        star_id (int): The star's ID.
+        db (AsyncSession): The asynchronous database session.
+
+    Returns:
+        StarResponseSchema: Star details.
+
+    Raises:
+        HTTPException: If star not found.
+    """
+    stmt = select(StarModel).where(StarModel.id == star_id)
+    result = await db.execute(stmt)
+    star = result.scalars().first()
+    if not star:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Star not found."
+        )
+    return StarResponseSchema(id=star.id, name=star.name)
