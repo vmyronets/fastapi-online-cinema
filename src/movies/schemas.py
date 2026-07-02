@@ -248,6 +248,22 @@ class CommentResponseSchema(CommentCreateSchema):
     model_config = ConfigDict(from_attributes=True)
 
 
+class CommentLikeCreateSchema(BaseModel):
+    """Schema for liking or disliking a comment."""
+    is_like: bool
+
+
+class CommentLikeResponseSchema(BaseModel):
+    """Schema for comment like response."""
+    id: int
+    user_id: int
+    comment_id: int
+    is_like: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # ----------------------------------------------
 # Rating
 # ----------------------------------------------

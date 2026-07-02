@@ -182,6 +182,16 @@ class EmailSender(EmailSenderInterface):
             replier_name: str,
             comment_content: str
     ) -> None:
+        """
+        Sends an email notification to the recipient
+        when they receive a reply to their comment.
+
+        Args:
+            email (str): The email address of the recipient.
+            movie_title (str): The title of the movie.
+            replier_name (str): The name of the user who replied.
+            comment_content (str): The content of the comment.
+        """
         template = self._env.get_template(self._comment_reply_template)
         html_content = template.render(
             movie_title=movie_title,
@@ -201,6 +211,15 @@ class EmailSender(EmailSenderInterface):
             movie_title: str,
             comment_preview: str
     ) -> None:
+        """
+        Sends an email notification to the recipient
+        when they receive a like to their comment.
+
+        Args:
+            email (str): The email address of the recipient.
+            movie_title (str): The title of the movie.
+            comment_preview (str): The preview of the comment.
+        """
         template = self._env.get_template(self._comment_like_template)
         html_content = template.render(
             movie_title=movie_title,
