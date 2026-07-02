@@ -19,8 +19,30 @@ from pydantic import (
 
 
 # ----------------------------------------------
+# Pagination
+# ----------------------------------------------
+
+class PaginatedResponseSchema(BaseModel):
+    """
+    Generic paginated response wrapper.
+
+    Attributes:
+        items: List of items for the current page.
+        total: Total number of items.
+        page: Current page number.
+        per_page: Items per page.
+        pages: Total number of pages.
+    """
+    items: list
+    total: int
+    page: int
+    per_page: int
+    pages: int
+
+# ----------------------------------------------
 # Genre
 # ----------------------------------------------
+
 
 class GenreCreateSchema(BaseModel):
     """Schema for creating a genre."""
@@ -276,25 +298,3 @@ class MovieLikeResponseSchema(MovieLikeCreateSchema):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
-
-
-# ----------------------------------------------
-# Pagination
-# ----------------------------------------------
-
-class PaginatedResponseSchema(BaseModel):
-    """
-    Generic paginated response wrapper.
-
-    Attributes:
-        items: List of items for the current page.
-        total: Total number of items.
-        page: Current page number.
-        per_page: Items per page.
-        pages: Total number of pages.
-    """
-    items: list
-    total: int
-    page: int
-    per_page: int
-    pages: int

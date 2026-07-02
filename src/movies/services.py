@@ -39,7 +39,7 @@ def apply_movie_filters_and_sort(
     Returns:
         Select: The modified SQLAlchemy statement.
     """
-    # 1. Apply filters.
+    # Apply filters.
     if year:
         stmt = stmt.where(MovieModel.year == year)
     if min_imdb is not None:
@@ -47,7 +47,7 @@ def apply_movie_filters_and_sort(
     if genre:
         stmt = stmt.join(MovieModel.genres).where(GenreModel.name == genre)
 
-    # 2. Apply search.
+    # Apply search.
     if search:
         search_pattern = f"%{search}%"
         stmt = (
@@ -63,7 +63,7 @@ def apply_movie_filters_and_sort(
             )
         )
 
-    # 3. Apply sorting.
+    # Apply sorting.
     sort_column = {
         "price": MovieModel.price,
         "year": MovieModel.year,

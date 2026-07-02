@@ -54,7 +54,8 @@ from movies.schemas import (
     RatingCreateSchema,
     FavoriteResponseSchema,
     MovieLikeResponseSchema,
-    MovieLikeCreateSchema
+    MovieLikeCreateSchema, StarResponseSchema, StarUpdateSchema,
+    StarCreateSchema,
 )
 from src.movies.services import (
     apply_movie_filters_and_sort,
@@ -1135,4 +1136,54 @@ async def like_movie(
         movie_id=like.movie_id,
         is_like=like.is_like,
         created_at=like.created_at
+    )
+
+
+# ----------------------------------------------
+# Stars / Actors CRUD
+# ----------------------------------------------
+
+@router.get(
+    "/stars/",
+    response_model=PaginatedResponseSchema,
+    summary="List all stars/actors with pagination",
+)
+async def list_stars(
+        db: SessionDep,
+        page: int = Query(1, ge=1, description="Page number"),
+        per_page: int = Query(
+            10, ge=1, le=100, description="Items per page"
+        ),
+        search: Optional[str] = Query(
+            None,
+            description="Search stars by name"
+        )
+) -> PaginatedResponseSchema:
+    """
+    Get a paginated list of all stars/actors with optional name filtering.
+
+    Args:
+        db (AsyncSession): The asynchronous database session.
+        page (int): Page number.
+        per_page (int): Items per page.
+        search (str, optional): Search query for actor's name.
+
+    Returns:
+        PaginatedResponseSchema: Paginated list of actors.
+    """
+    stmt = select(StarModel)
+    if search:
+        stmt = stmt.where(StarModel.name.ilike(f"%{search}%"))
+
+    stmt = stmt.order_by(StarModel.name.asc())
+
+    return await get_paginated_response(
+        db=db,
+        stmt=stmt,
+        page=page,
+        per_page=per_page,
+        transform_item=lambda star: StarResponseSchema(
+            id=star.id,
+            name=star.name
+        )
     )
