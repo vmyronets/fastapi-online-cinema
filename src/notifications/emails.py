@@ -29,6 +29,8 @@ class EmailSender(EmailSenderInterface):
         self._activation_complete_template = "activation_complete.html"
         self._password_reset_template = "password_reset.html"
         self._password_complete_template = "password_complete.html"
+        self._comment_reply_template = "comment_reply.html"
+        self._comment_like_template = "comment_like.html"
 
         # Specify the folder containing the templates
         self._env = Environment(
@@ -173,10 +175,31 @@ class EmailSender(EmailSenderInterface):
             html_content
         )
 
+    async def send_comment_reply_email(
+            self,
+            email: str,
+            movie_title: str,
+            replier_name: str,
+            comment_content: str
+    ) -> None:
+        template = self._env.get_template(self._comment_reply_template)
+        html_content = template.render(
+            movie_title=movie_title,
+            replier_name=replier_name,
+            comment_content=comment_content
+        )
+        await self._send_email(
+            email,
+            f"You have received a reply "
+            f"to your comment on {movie_title}",
+            html_content
+        )
 
 # --------------------------------------------------
 # FastAPI dependencies for the notifications module.
 # --------------------------------------------------
+
+
 def get_email_sender() -> EmailSenderInterface:
     """
     Returns an instance of EmailSender for using in routes.
