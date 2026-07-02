@@ -1255,3 +1255,52 @@ async def create_star(
     await db.refresh(star)
 
     return StarResponseSchema(id=star.id, name=star.name)
+
+
+@router.patch(
+    "/stars/{star_id}/",
+    response_model=StarResponseSchema,
+    summary="Update a star (moderator)",
+)
+async def update_star(
+        star_id: int,
+        db: SessionDep,
+        jwt_manager: JWTManagerDep,
+        data: StarUpdateSchema,
+        token: str = Depends(get_token),
+) -> StarResponseSchema:
+    """
+    Update a star's information (moderator/admin only).
+
+    Args:
+        star_id (int): The star's ID.
+        db (AsyncSession): The asynchronous database session.
+        jwt_manager (JWTAuthManagerInterface): JWT manager for decoding.
+        data (StarUpdateSchema): Fields to update.
+        token (str): The authentication token.
+
+    Returns:
+        StarResponseSchema: The updated star details.
+
+    Raises:
+        HTTPException: If not authorized or star not found.
+    """
+    payload = _decode_token(token, jwt_manager)
+    await _require_moderator(db, cast(int, payload.get("user_id")))
+
+    stmt = select(StarModel).where(StarModel.id == star_id)
+    result = await db.execute(stmt)
+    star = result.scalars().first()
+    if not star:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Star not found."
+        )
+
+    if data.name:
+        star.name = data.name
+
+    await db.commit()
+    await db.refresh(star)
+
+    return StarResponseSchema(id=star.id, name=star.name)
