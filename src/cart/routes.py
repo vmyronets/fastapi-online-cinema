@@ -13,8 +13,9 @@ from fastapi import (
     HTTPException,
     status
 )
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from orders.models import (
     OrderItemModel,
@@ -29,7 +30,8 @@ from cart.models import (
 )
 from cart.schemas import (
     CartResponseSchema,
-    CartItemResponseSchema, CartItemAddSchema,
+    CartItemResponseSchema,
+    CartItemAddSchema
 )
 from movies.models import MovieModel
 from security.exceptions import BaseSecurityError
@@ -106,7 +108,7 @@ async def _build_cart_item_response(
         id=item.id,
         movie_id=item.movie_id,
         movie_name=movie.name if movie else None,
-        movie_price=float(movie.price) if movie else None,
+        movie_price=movie.price if movie else None,
         movie_year=movie.year if movie else None,
         movie_genres=[g.name for g in movie.genres] if movie else [],
         added_at=item.added_at,
@@ -116,7 +118,7 @@ async def _build_cart_item_response(
 @router.get(
     "/",
     response_model=CartResponseSchema,
-    summary="View cart contents",
+    summary="View cart contents"
 )
 async def get_cart(
     db: SessionDep,
@@ -140,16 +142,29 @@ async def get_cart(
         CartResponseSchema: The user's cart with items.
     """
     payload = _decode_token(token, jwt_manager)
-    user_id = payload.get("user_id")
+    user_id = cast(int, payload.get("user_id"))
     cart = await _get_or_create_cart(db, user_id)
 
     # Fetch cart items.
-    stmt = select(CartItemModel).where(CartItemModel.cart_id == cart.id)
+    stmt = select(CartItemModel).where(
+        CartItemModel.cart_id == cart.id
+    ).options(joinedload(CartItemModel.movie).joinedload(MovieModel.genres))
     result = await db.execute(stmt)
     items = result.scalars().all()
 
     item_responses = [
-        await _build_cart_item_response(db, item) for item in items
+        CartItemResponseSchema(
+            id=item.id,
+            movie_id=item.movie_id,
+            movie_name=item.movie.name if item.movie else None,
+            movie_price=item.movie.price if item.movie else None,
+            movie_year=item.movie.year if item.movie else None,
+            movie_genres=[
+                genre.name for genre in item.movie.genres
+            ] if item.movie else [],
+            added_at=item.added_at
+        )
+        for item in items
     ]
 
     return CartResponseSchema(
@@ -194,7 +209,7 @@ async def add_to_cart(
         HTTPException: If movie not found, already purchased, or already in cart.
     """
     payload = _decode_token(token, jwt_manager)
-    user_id = payload.get("user_id")
+    user_id = cast(int, payload.get("user_id"))
 
     # Verify movie exists.
     movie = (
@@ -278,7 +293,7 @@ async def remove_from_cart(
         HTTPException: If movie not in cart.
     """
     payload = _decode_token(token, jwt_manager)
-    user_id = payload.get("user_id")
+    user_id = cast(int, payload.get("user_id"))
     cart = await _get_or_create_cart(db, user_id)
 
     item = (
@@ -324,16 +339,11 @@ async def clear_cart(
         dict: Confirmation message.
     """
     payload = _decode_token(token, jwt_manager)
-    user_id = payload.get("user_id")
+    user_id = cast(int, payload.get("user_id"))
     cart = await _get_or_create_cart(db, user_id)
 
-    items = (
-        await db.execute(
-            select(CartItemModel).where(CartItemModel.cart_id == cart.id))
-    ).scalars().all()
-
-    for item in items:
-        await db.delete(item)
+    stmt = delete(CartItemModel).where(CartItemModel.cart_id == cart.id)
+    await db.execute(stmt)
     await db.commit()
 
     return {"detail": "Cart cleared successfully."}
