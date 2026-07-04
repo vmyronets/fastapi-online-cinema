@@ -25,6 +25,7 @@ from src.database.session import Base
 
 if TYPE_CHECKING:
     from src.cart.models.cart import CartModel
+    from src.movies.models.movie import MovieModel
 
 
 class CartItemModel(Base):
@@ -49,7 +50,7 @@ class CartItemModel(Base):
             "cart_id",
             "movie_id",
             name="uq_cart_item_cart_movie"
-        )
+        ),
     )
 
     id: Mapped[int] = mapped_column(
@@ -78,6 +79,12 @@ class CartItemModel(Base):
         "CartModel",
         back_populates="items",
         lazy="selectin"
+    )
+
+    # Many-to-one back-reference to the movie.
+    movie: Mapped["MovieModel"] = relationship(
+        "MovieModel",
+        lazy="joined"
     )
 
     def __repr__(self) -> str:
