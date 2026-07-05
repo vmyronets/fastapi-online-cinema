@@ -23,11 +23,12 @@ from fastapi import (
     status,
     BackgroundTasks
 )
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from sqlalchemy.orm import selectinload
 
 from src.accounts.routes import SessionDep, JWTManagerDep
 from src.config import settings
+from src.cart.models import CartModel, CartItemModel
 from src.orders.models import OrderModel, OrderItemModel
 from src.orders.models.enums import OrderStatusEnum
 from src.payments.models import (
@@ -419,6 +420,21 @@ async def stripe_webhook(
                         price_at_payment=order_item.price_at_order,
                     )
                     db.add(payment_item)
+
+                # Clear cart.
+                cart = (
+                    await db.execute(
+                        select(CartModel).where(
+                            CartModel.user_id == order.user_id)
+                    )
+                ).scalars().first()
+
+                if cart:
+                    await db.execute(
+                        delete(CartItemModel).where(
+                            CartItemModel.cart_id == cart.id
+                        )
+                    )
 
                 # Retrieve user email for the background task
                 user_email = order.user.email
