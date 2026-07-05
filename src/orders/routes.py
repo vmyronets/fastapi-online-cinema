@@ -4,7 +4,7 @@ API routes for the orders module.
 Provides endpoints for creating orders from cart, listing orders,
 canceling orders, and admin order management.
 """
-
+from decimal import Decimal
 from typing import cast
 
 from fastapi import (
@@ -125,7 +125,7 @@ async def create_order(
         HTTPException: If cart is empty, movies unavailable, or duplicate pending order.
     """
     payload = _decode_token(token, jwt_manager)
-    user_id = payload.get("user_id")
+    user_id = cast(int, payload.get("user_id"))
 
     # Get user's cart.
     cart = (
@@ -187,34 +187,34 @@ async def create_order(
 
     # Create order.
     total = sum(
-        float(movie_map[item.movie_id].price) for item in available_items
+        movie_map[item.movie_id].price for item in available_items
     )
     order = OrderModel(
         user_id=user_id,
         status=OrderStatusEnum.PENDING,
         total_amount=total,
     )
-    db.add(order)
-    await db.commit()
+    try:
+        db.add(order)
+        await db.flush()
+
+        # Create order items.
+        for item in available_items:
+            movie = movie_map[item.movie_id]
+            order_item = OrderItemModel(
+                order_id=order.id,
+                movie_id=item.movie_id,
+                price_at_order=movie.price,
+            )
+            db.add(order_item)
+
+        await db.commit()
+
+    except Exception:
+        await db.rollback()
+        raise
+
     await db.refresh(order)
-
-    # Create order items.
-    for item in available_items:
-        movie = movie_map[item.movie_id]
-        order_item = OrderItemModel(
-            order_id=cast(int, order.id),
-            movie_id=item.movie_id,
-            price_at_order=float(movie.price),
-        )
-        db.add(order_item)
-
-    await db.commit()
-    await db.refresh(order)
-
-    # Clear cart.
-    for item in cart_items:
-        await db.delete(item)
-    await db.commit()
 
     return _build_order_response(order)
 
