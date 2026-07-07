@@ -70,7 +70,7 @@ class OrderModel(Base):
         default=OrderStatusEnum.PENDING,
         nullable=False
     )
-    total_amount: Mapped[Decimal | None | int] = mapped_column(
+    total_amount: Mapped[Decimal | None] = mapped_column(
         Numeric(10, 2),
         nullable=True
     )

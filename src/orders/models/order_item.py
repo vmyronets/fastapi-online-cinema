@@ -4,6 +4,7 @@ OrderItem ORM model.
 Represents the order_items table storing individual line items
 within an order. Stores price_at_order for historical accuracy.
 """
+from decimal import Decimal
 
 from sqlalchemy import (
     Integer,
@@ -54,7 +55,7 @@ class OrderItemModel(Base):
         ForeignKey("movies.id", ondelete="CASCADE"),
         nullable=False
     )
-    price_at_order: Mapped[float] = mapped_column(
+    price_at_order: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False
     )

@@ -46,7 +46,7 @@ class OrderResponseSchema(BaseModel):
     user_id: int
     created_at: datetime
     status: OrderStatusEnum
-    total_amount: Optional[Decimal | int] = None
+    total_amount: Optional[Decimal | None] = None
     items: list[OrderItemResponseSchema] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
@@ -63,6 +63,6 @@ class OrderListResponseSchema(BaseModel):
         per_page: Items per page.
     """
     items: list[OrderResponseSchema]
-    total: Decimal | int
+    total: int
     page: int
     per_page: int

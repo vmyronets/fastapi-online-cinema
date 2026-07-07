@@ -4,6 +4,7 @@ API routes for the orders module.
 Provides endpoints for creating orders from cart, listing orders,
 canceling orders, and admin order management.
 """
+from datetime import date
 from decimal import Decimal
 from typing import cast
 
@@ -17,6 +18,7 @@ from fastapi import (
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from accounts.models import UserModel, UserGroupEnum
 from cart.models import CartModel, CartItemModel
 from movies.models import MovieModel
 from orders.models import (
@@ -78,12 +80,12 @@ def _build_order_response(order: OrderModel) -> OrderResponseSchema:
         user_id=order.user_id,
         created_at=order.created_at,
         status=order.status,
-        total_amount=float(order.total_amount) if order.total_amount else None,
+        total_amount=order.total_amount if order.total_amount else None,
         items=[
             OrderItemResponseSchema(
                 id=item.id,
                 movie_id=item.movie_id,
-                price_at_order=float(item.price_at_order),
+                price_at_order=item.price_at_order,
             )
             for item in order.items
         ]
@@ -94,7 +96,7 @@ def _build_order_response(order: OrderModel) -> OrderResponseSchema:
     "/",
     response_model=OrderResponseSchema,
     summary="Create order from cart",
-    status_code=status.HTTP_201_CREATED,
+    status_code=status.HTTP_201_CREATED
 )
 async def create_order(
     db: SessionDep,
@@ -111,7 +113,6 @@ async def create_order(
     - Ensure all movies are available.
     - Check no pending orders with the same movies exist.
     - Create order with items and total amount.
-    - Clear the cart after order creation.
 
     Args:
         db (AsyncSession): The asynchronous database session.
@@ -166,7 +167,7 @@ async def create_order(
         .where(
             OrderModel.user_id == user_id,
             OrderModel.status == OrderStatusEnum.PAID,
-            OrderItemModel.movie_id.in_(movie_ids),
+            OrderItemModel.movie_id.in_(movie_ids)
         )
     )
     purchased_ids = {row[0] for row in purchased_ids_result.all()}
@@ -180,11 +181,29 @@ async def create_order(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                "No available movies to order. "
-                "All items are already purchased or unavailable."
+                "No available movies to order."
             )
         )
 
+    available_movie_ids = [item.movie_id for item in available_items]
+
+    # Check for existing PENDING orders for these movies
+    pending_orders_exist = await db.execute(
+        select(OrderItemModel.id)
+        .join(OrderModel)
+        .where(
+            OrderModel.user_id == user_id,
+            OrderModel.status == OrderStatusEnum.PENDING,
+            OrderItemModel.movie_id.in_(available_movie_ids)
+        )
+    )
+    if pending_orders_exist.scalars().first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "You already have a pending order with some of these movies."
+            )
+        )
     # Create order.
     total = sum(
         movie_map[item.movie_id].price for item in available_items
@@ -192,7 +211,7 @@ async def create_order(
     order = OrderModel(
         user_id=user_id,
         status=OrderStatusEnum.PENDING,
-        total_amount=total,
+        total_amount=total
     )
     try:
         db.add(order)
@@ -204,7 +223,7 @@ async def create_order(
             order_item = OrderItemModel(
                 order_id=order.id,
                 movie_id=item.movie_id,
-                price_at_order=movie.price,
+                price_at_order=movie.price
             )
             db.add(order_item)
 
@@ -222,7 +241,7 @@ async def create_order(
 @router.get(
     "/",
     response_model=OrderListResponseSchema,
-    summary="List user's orders",
+    summary="List user's orders"
 )
 async def list_orders(
     db: SessionDep,
@@ -230,10 +249,10 @@ async def list_orders(
     token: str = Depends(get_token),
     page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1, le=100),
-    order_status: str | None = Query(
+    order_status: OrderStatusEnum | None = Query(
         None,
         description="Filter by status: pending, paid, canceled"
-    ),
+    )
 ) -> OrderListResponseSchema:
     """
     List the authenticated user's orders with optional status filter.
@@ -250,7 +269,7 @@ async def list_orders(
         OrderListResponseSchema: Paginated list of orders.
     """
     payload = _decode_token(token, jwt_manager)
-    user_id = payload.get("user_id")
+    user_id = cast(int, payload.get("user_id"))
 
     stmt = select(OrderModel).where(OrderModel.user_id == user_id)
     if order_status:
@@ -269,17 +288,17 @@ async def list_orders(
     orders = result.scalars().unique().all()
 
     return OrderListResponseSchema(
-        items=[_build_order_response(o) for o in orders],
+        items=[_build_order_response(order) for order in orders],
         total=total,
         page=page,
-        per_page=per_page,
+        per_page=per_page
     )
 
 
 @router.post(
     "/{order_id}/cancel/",
     response_model=OrderResponseSchema,
-    summary="Cancel an order",
+    summary="Cancel an order"
 )
 async def cancel_order(
     db: SessionDep,
@@ -306,7 +325,7 @@ async def cancel_order(
         HTTPException: If order not found, not owned by user, or not pending.
     """
     payload = _decode_token(token, jwt_manager)
-    user_id = payload.get("user_id")
+    user_id = cast(int, payload.get("user_id"))
 
     order = (
         await db.execute(
@@ -335,3 +354,96 @@ async def cancel_order(
     await db.refresh(order)
 
     return _build_order_response(order)
+
+
+@router.get(
+    "/admin/orders",
+    response_model=OrderListResponseSchema,
+    summary="Moderator/Admin: List all user orders with filters",
+)
+async def admin_list_orders(
+        db: SessionDep,
+        jwt_manager: JWTManagerDep,
+        token: str = Depends(get_token),
+        page: int = Query(1, ge=1),
+        per_page: int = Query(10, ge=1, le=100),
+        user_id: int | None = Query(
+            None,
+            description="Filter by User ID"
+        ),
+        order_status: OrderStatusEnum | None = Query(
+            None,
+            description="Filter by Status"
+        ),
+        date_from: date | None = Query(
+            None,
+            description="Filter from date (YYYY-MM-DD)"
+        ),
+        date_to: date | None = Query(
+            None,
+            description="Filter to date (YYYY-MM-DD)"
+        )
+) -> OrderListResponseSchema:
+    """
+    List all user orders with optional filters.
+    Accessible only by users in ADMIN or MODERATOR groups.
+    """
+    # Decode the token and retrieve the user_id
+    payload = _decode_token(token, jwt_manager)
+    current_user_id = cast(int, payload.get("user_id"))
+
+    # Retrieve the current user from the database
+    # Thanks to `lazy="selectin"` in `UserModel.group`,
+    # the group will be fetched automatically
+    current_user = (
+        await db.execute(
+            select(UserModel).where(UserModel.id == current_user_id)
+        )
+    ).scalars().first()
+
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found."
+        )
+
+    # Check whether the user belongs to the required group
+    allowed_groups = {UserGroupEnum.ADMIN, UserGroupEnum.MODERATOR}
+    if current_user.group.name not in allowed_groups:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions. "
+                   "Moderator or Admin access required."
+        )
+
+    # Creating a basic query for Orders
+    stmt = select(OrderModel)
+
+    # Applying filters
+    if user_id:
+        stmt = stmt.where(OrderModel.user_id == user_id)
+    if order_status:
+        stmt = stmt.where(OrderModel.status == order_status)
+    if date_from:
+        stmt = stmt.where(OrderModel.created_at >= date_from)
+    if date_to:
+        stmt = stmt.where(OrderModel.created_at <= date_to)
+
+    # Calculate the total count (for pagination)
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    total = (await db.execute(count_stmt)).scalar() or 0
+
+    # Pagination and sorting
+    stmt = (
+        stmt.order_by(OrderModel.created_at.desc())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+    )
+    orders = (await db.execute(stmt)).scalars().unique().all()
+
+    return OrderListResponseSchema(
+        items=[_build_order_response(order) for order in orders],
+        total=total,
+        page=page,
+        per_page=per_page
+    )
