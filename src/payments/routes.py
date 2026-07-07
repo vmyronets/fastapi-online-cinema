@@ -26,6 +26,7 @@ from fastapi import (
 from sqlalchemy import select, func, delete
 from sqlalchemy.orm import selectinload
 
+from movies.models import MovieModel
 from src.accounts.routes import SessionDep, JWTManagerDep
 from src.config import settings
 from src.cart.models import CartModel, CartItemModel
@@ -237,26 +238,45 @@ async def pay_order(
                    f"Only pending orders can be paid."
         )
 
+    movie_ids = [item.movie_id for item in order.items]
+
+    movies = (
+        await db.execute(
+            select(MovieModel).where(MovieModel.id.in_(movie_ids))
+        )
+    ).scalars().all()
+
+    if len(movies) != len(movie_ids):
+        raise HTTPException(
+            status_code=400,
+            detail="Some movies are no longer available."
+        )
+
+    movie_map = {movie.id: movie for movie in movies}
+
     # Build Stripe line items from order items
     # Stripe expects amounts in cents (e.g., $10.00 = 1000)
     line_items = []
-    total_amount = Decimal(0.00)
+    total_amount = Decimal("0")
 
     for item in order.items:
-        product_name = f"Product ID {item.movie_id}"
-        item_price = item.price_at_order
-        total_amount += item_price
+        movie = movie_map[item.movie_id]
+        current_price = movie.price
+        # item.price_at_order = current_price ???
+        total_amount += current_price
 
         line_items.append({
             "price_data": {
                 "currency": "usd",
                 "product_data": {
-                    "name": product_name
+                    "name": movie.name
                 },
-                "unit_amount": int(item_price * 100),
+                "unit_amount": int(current_price * 100),
             },
-            "quantity": item.quantity
+            "quantity": 1
         })
+
+    order.total_amount = total_amount
 
     try:
         # Create Stripe Checkout Session
@@ -264,7 +284,8 @@ async def pay_order(
             payment_method_types=["card"],
             line_items=line_items,
             mode="payment",
-            # Stripe will automatically replace {CHECKOUT_SESSION_ID} with the actual ID
+            # Stripe will automatically replace
+            # {CHECKOUT_SESSION_ID} with the actual ID
             success_url=f"{settings.APP_BASE_URL}/payments/success"
                         f"?session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=f"{settings.APP_BASE_URL}/payments/cancel",
@@ -364,7 +385,8 @@ async def stripe_webhook(
     Handle incoming Stripe webhook events.
 
     This endpoint verifies the signature sent by Stripe to ensure security,
-    then processes specific events like 'checkout.session.completed'.
+    then processes specific events like 'checkout.session.completed' and
+    clears the cart after order creation.
     """
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
