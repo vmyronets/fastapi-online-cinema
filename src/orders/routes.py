@@ -5,7 +5,6 @@ Provides endpoints for creating orders from cart, listing orders,
 canceling orders, and admin order management.
 """
 from datetime import date
-from decimal import Decimal
 from typing import cast
 
 from fastapi import (
@@ -20,49 +19,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from accounts.models import UserModel, UserGroupEnum
 from cart.models import CartModel, CartItemModel
+from config.settings import SessionDep, JWTManagerDep
 from movies.models import MovieModel
 from orders.models import (
     OrderModel,
     OrderItemModel,
     OrderStatusEnum
 )
-from src.accounts.routes import SessionDep, JWTManagerDep
 from src.orders.schemas import (
     OrderResponseSchema,
     OrderItemResponseSchema,
     OrderListResponseSchema
 )
-from src.security.dependencies import get_token
-from src.security.exceptions import BaseSecurityError
+from src.security.dependencies import (get_token, decode_token,
+                                       require_admin_or_moderator, )
 from src.security.interfaces import JWTAuthManagerInterface
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
-
-
-def _decode_token(
-        token: str,
-        jwt_manager: JWTAuthManagerInterface
-) -> dict:
-    """
-    Decode and validate a JWT access token.
-
-    Args:
-        token: The raw JWT token string.
-        jwt_manager: JWT manager instance for decoding.
-
-    Returns:
-        dict: The decoded token payload.
-
-    Raises:
-        HTTPException: If the token is invalid or expired.
-    """
-    try:
-        return jwt_manager.decode_access_token(token)
-    except BaseSecurityError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e)
-        )
 
 
 def _build_order_response(order: OrderModel) -> OrderResponseSchema:
@@ -125,7 +98,7 @@ async def create_order(
     Raises:
         HTTPException: If cart is empty, movies unavailable, or duplicate pending order.
     """
-    payload = _decode_token(token, jwt_manager)
+    payload = decode_token(token, jwt_manager)
     user_id = cast(int, payload.get("user_id"))
 
     # Get user's cart.
@@ -268,7 +241,7 @@ async def list_orders(
     Returns:
         OrderListResponseSchema: Paginated list of orders.
     """
-    payload = _decode_token(token, jwt_manager)
+    payload = decode_token(token, jwt_manager)
     user_id = cast(int, payload.get("user_id"))
 
     stmt = select(OrderModel).where(OrderModel.user_id == user_id)
@@ -324,7 +297,7 @@ async def cancel_order(
     Raises:
         HTTPException: If order not found, not owned by user, or not pending.
     """
-    payload = _decode_token(token, jwt_manager)
+    payload = decode_token(token, jwt_manager)
     user_id = cast(int, payload.get("user_id"))
 
     order = (
@@ -363,8 +336,7 @@ async def cancel_order(
 )
 async def admin_list_orders(
         db: SessionDep,
-        jwt_manager: JWTManagerDep,
-        token: str = Depends(get_token),
+        current_user: UserModel = Depends(require_admin_or_moderator),
         page: int = Query(1, ge=1),
         per_page: int = Query(10, ge=1, le=100),
         user_id: int | None = Query(
@@ -388,33 +360,6 @@ async def admin_list_orders(
     List all user orders with optional filters.
     Accessible only by users in ADMIN or MODERATOR groups.
     """
-    # Decode the token and retrieve the user_id
-    payload = _decode_token(token, jwt_manager)
-    current_user_id = cast(int, payload.get("user_id"))
-
-    # Retrieve the current user from the database
-    # Thanks to `lazy="selectin"` in `UserModel.group`,
-    # the group will be fetched automatically
-    current_user = (
-        await db.execute(
-            select(UserModel).where(UserModel.id == current_user_id)
-        )
-    ).scalars().first()
-
-    if not current_user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found."
-        )
-
-    # Check whether the user belongs to the required group
-    allowed_groups = {UserGroupEnum.ADMIN, UserGroupEnum.MODERATOR}
-    if current_user.group.name not in allowed_groups:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions. "
-                   "Moderator or Admin access required."
-        )
 
     # Creating a basic query for Orders
     stmt = select(OrderModel)
@@ -425,9 +370,9 @@ async def admin_list_orders(
     if order_status:
         stmt = stmt.where(OrderModel.status == order_status)
     if date_from:
-        stmt = stmt.where(OrderModel.created_at >= date_from)
+        stmt = stmt.where(func.date(OrderModel.created_at) >= date_from)
     if date_to:
-        stmt = stmt.where(OrderModel.created_at <= date_to)
+        stmt = stmt.where(func.date(OrderModel.created_at) <= date_to)
 
     # Calculate the total count (for pagination)
     count_stmt = select(func.count()).select_from(stmt.subquery())

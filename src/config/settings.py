@@ -6,8 +6,30 @@ from environment variables and .env files. All settings are
 centralized here for easy access throughout the application.
 """
 import os
+from typing import Annotated
 
+from fastapi import Depends
 from pydantic_settings import BaseSettings
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from database import get_db
+from notifications import EmailSenderInterface
+from notifications.emails import get_email_sender
+from security.dependencies import get_jwt_auth_manager
+from security.interfaces import JWTAuthManagerInterface
+
+# AsyncSession dependency
+SessionDep = Annotated[AsyncSession, Depends(get_db)]
+
+# JWTAuthManagerInterface dependency
+JWTManagerDep = Annotated[
+    JWTAuthManagerInterface, Depends(get_jwt_auth_manager)
+]
+
+# EmailSenderInterface dependency
+EmailSenderDep = Annotated[
+    EmailSenderInterface, Depends(get_email_sender)
+]
 
 
 class Settings(BaseSettings):

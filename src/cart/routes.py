@@ -17,13 +17,13 @@ from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
+from config.settings import SessionDep, JWTManagerDep
 from orders.models import (
     OrderItemModel,
     OrderModel,
     OrderStatusEnum
 )
-from security.dependencies import get_token
-from src.accounts.routes import SessionDep, JWTManagerDep
+from security.dependencies import get_token, decode_token
 from cart.models import (
     CartModel,
     CartItemModel
@@ -34,34 +34,10 @@ from cart.schemas import (
     CartItemAddSchema
 )
 from movies.models import MovieModel
-from security.exceptions import BaseSecurityError
 from security.interfaces import JWTAuthManagerInterface
 
 
 router = APIRouter(prefix="/cart", tags=["Cart"])
-
-
-def _decode_token(token: str, jwt_manager: JWTAuthManagerInterface) -> dict:
-    """
-    Decode and validate a JWT access token.
-
-    Args:
-        token: The raw JWT token string.
-        jwt_manager: JWT manager instance for decoding.
-
-    Returns:
-        dict: The decoded token payload.
-
-    Raises:
-        HTTPException: If the token is invalid or expired.
-    """
-    try:
-        return jwt_manager.decode_access_token(token)
-    except BaseSecurityError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e)
-        )
 
 
 async def _get_or_create_cart(db: AsyncSession, user_id: int) -> CartModel:
@@ -141,7 +117,7 @@ async def get_cart(
     Returns:
         CartResponseSchema: The user's cart with items.
     """
-    payload = _decode_token(token, jwt_manager)
+    payload = decode_token(token, jwt_manager)
     user_id = cast(int, payload.get("user_id"))
     cart = await _get_or_create_cart(db, user_id)
 
@@ -208,7 +184,7 @@ async def add_to_cart(
     Raises:
         HTTPException: If movie not found, already purchased, or already in cart.
     """
-    payload = _decode_token(token, jwt_manager)
+    payload = decode_token(token, jwt_manager)
     user_id = cast(int, payload.get("user_id"))
 
     # Verify movie exists.
@@ -292,7 +268,7 @@ async def remove_from_cart(
     Raises:
         HTTPException: If movie not in cart.
     """
-    payload = _decode_token(token, jwt_manager)
+    payload = decode_token(token, jwt_manager)
     user_id = cast(int, payload.get("user_id"))
     cart = await _get_or_create_cart(db, user_id)
 
@@ -338,7 +314,7 @@ async def clear_cart(
     Returns:
         dict: Confirmation message.
     """
-    payload = _decode_token(token, jwt_manager)
+    payload = decode_token(token, jwt_manager)
     user_id = cast(int, payload.get("user_id"))
     cart = await _get_or_create_cart(db, user_id)
 

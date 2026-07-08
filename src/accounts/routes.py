@@ -11,7 +11,7 @@ from datetime import (
     timedelta,
     timezone
 )
-from typing import cast, Annotated
+from typing import cast
 
 from fastapi import (
     APIRouter,
@@ -25,6 +25,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from config.settings import SessionDep, EmailSenderDep, JWTManagerDep
 from src.accounts.models import (
     UserModel,
     UserGroupModel,
@@ -56,8 +57,8 @@ from src.accounts.schemas import (
 from src.database.session import get_db
 from src.security.dependencies import (
     get_token,
-    get_jwt_auth_manager,
-    get_s3_storage_client
+    get_s3_storage_client,
+    decode_token
 )
 from src.security.exceptions import BaseSecurityError, S3FileUploadError
 from src.security.interfaces import JWTAuthManagerInterface, S3StorageInterface
@@ -67,18 +68,6 @@ from src.security.password import (
     validate_password_complexity
 )
 from src.notifications.interfaces import EmailSenderInterface
-from src.notifications.emails import get_email_sender
-
-
-SessionDep = Annotated[AsyncSession, Depends(get_db)]
-
-JWTManagerDep = Annotated[
-    JWTAuthManagerInterface, Depends(get_jwt_auth_manager)
-]
-
-EmailSenderDep = Annotated[
-    EmailSenderInterface, Depends(get_email_sender)
-]
 
 
 router = APIRouter(prefix="/accounts", tags=["Accounts"])
@@ -87,29 +76,6 @@ router = APIRouter(prefix="/accounts", tags=["Accounts"])
 # ----------------------------------------------
 # Helper: decode token and get user_id
 # ----------------------------------------------
-
-def _decode_token(token: str, jwt_manager: JWTAuthManagerInterface) -> dict:
-    """
-    Decode and validate a JWT access token.
-
-    Args:
-        token: The raw JWT token string.
-        jwt_manager: JWT manager instance for decoding.
-
-    Returns:
-        dict: The decoded token payload.
-
-    Raises:
-        HTTPException: If the token is invalid or expired.
-    """
-    try:
-        return jwt_manager.decode_access_token(token)
-    except BaseSecurityError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e)
-        )
-
 
 async def _get_active_user(db: AsyncSession, user_id: int) -> UserModel:
     """
@@ -693,8 +659,8 @@ async def change_password(
     Raises:
         HTTPException: If old password is wrong or new password is weak.
     """
-    payload = _decode_token(token, jwt_manager)
-    user = await _get_active_user(db, payload.get("user_id"))
+    payload = decode_token(token, jwt_manager)
+    user = await _get_active_user(db, cast(int, payload.get("user_id")))
 
     if not verify_password(data.old_password, user.hashed_password):
         raise HTTPException(
@@ -995,8 +961,8 @@ async def create_profile(
         HTTPException: If authentication fails, if the user is not found or inactive,
                        or if the profile already exists, or if S3 upload fails.
     """
-    payload = _decode_token(token, jwt_manager)
-    token_user_id = payload.get("user_id")
+    payload = decode_token(token, jwt_manager)
+    token_user_id = cast(int, payload.get("user_id"))
     await _check_permission(db, token_user_id, user_id)
 
     user = await _get_active_user(db, user_id)
@@ -1096,7 +1062,7 @@ async def get_profile(
     Raises:
         HTTPException: If authentication fails or profile not found.
     """
-    _decode_token(token, jwt_manager)
+    decode_token(token, jwt_manager)
 
     stmt = select(UserProfileModel).where(UserProfileModel.user_id == user_id)
     result = await db.execute(stmt)
@@ -1120,7 +1086,7 @@ async def get_profile(
         gender=profile.gender,
         date_of_birth=profile.date_of_birth,
         info=profile.info,
-        avatar=avatar_url,
+        avatar=avatar_url
     )
 
 
@@ -1160,8 +1126,8 @@ async def update_profile(
     Raises:
         HTTPException: If authentication fails, profile not found, or S3 upload fails.
     """
-    payload = _decode_token(token, jwt_manager)
-    token_user_id = payload.get("user_id")
+    payload = decode_token(token, jwt_manager)
+    token_user_id = cast(int, payload.get("user_id"))
     await _check_permission(db, token_user_id, user_id)
 
     stmt = select(UserProfileModel).where(UserProfileModel.user_id == user_id)
@@ -1258,7 +1224,7 @@ async def admin_update_user(
     Raises:
         HTTPException: If requester is not admin, user not found, or group invalid.
     """
-    payload = _decode_token(token, jwt_manager)
+    payload = decode_token(token, jwt_manager)
     admin_user_id = payload.get("user_id")
 
     # Verify requester is ADMIN.
