@@ -40,7 +40,7 @@ class MovieLikeModel(Base):
             "user_id",
             "movie_id",
             name="uq_like_user_movie"
-        )
+        ),
     )
 
     id: Mapped[int] = mapped_column(

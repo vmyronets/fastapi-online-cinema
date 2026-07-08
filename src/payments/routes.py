@@ -27,12 +27,18 @@ from fastapi import (
 from sqlalchemy import select, func, delete
 from sqlalchemy.orm import selectinload
 
-from accounts.models import UserModel, UserGroupEnum
-from config.settings import SessionDep, JWTManagerDep
-from movies.models import MovieModel
+from src.accounts.models import UserModel, UserGroupEnum
+from src.security.dependencies import (
+    SessionDep,
+    JWTManagerDep,
+    get_token,
+    decode_token,
+    require_admin_or_moderator
+)
+from src.movies.models import MovieModel
 from src.config import settings
 from src.cart.models import CartModel, CartItemModel
-from src.orders.models import OrderModel, OrderItemModel
+from src.orders.models import OrderModel
 from src.orders.models.enums import OrderStatusEnum
 from src.payments.models import (
     PaymentModel,
@@ -45,8 +51,7 @@ from src.payments.schemas import (
     PaymentListResponseSchema,
     StripeCheckoutResponseSchema,
 )
-from src.security.dependencies import (get_token, decode_token,
-                                       require_admin_or_moderator, )
+
 from src.security.interfaces import JWTAuthManagerInterface
 
 router = APIRouter(prefix="/payments", tags=["Payments"])

@@ -4,19 +4,31 @@ FastAPI security dependencies.
 Provides dependency injection functions for extracting JWT tokens
 from request headers and instantiating security service objects.
 """
-from typing import cast
+from typing import cast, Annotated
 
 from fastapi import Header, Depends, HTTPException, status
 
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from config.settings import SessionDep, JWTManagerDep
+from database import get_db
+from notifications import EmailSenderInterface
+from notifications.emails import get_email_sender
 from security.exceptions import BaseSecurityError
 from src.accounts.models import UserModel, UserGroupEnum
 
 from src.security.interfaces import JWTAuthManagerInterface, S3StorageInterface
 from src.security.jwt_manager import JWTAuthManager
 from src.s3.client import S3StorageClient
+
+
+# AsyncSession dependency
+SessionDep = Annotated[AsyncSession, Depends(get_db)]
+
+# EmailSenderInterface dependency
+EmailSenderDep = Annotated[
+    EmailSenderInterface, Depends(get_email_sender)
+]
 
 
 def get_token(
@@ -86,6 +98,12 @@ def decode_token(token: str, jwt_manager: JWTAuthManagerInterface) -> dict:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e)
         )
+
+
+# JWTAuthManagerInterface dependency
+JWTManagerDep = Annotated[
+    JWTAuthManagerInterface, Depends(get_jwt_auth_manager)
+]
 
 
 async def get_current_user(

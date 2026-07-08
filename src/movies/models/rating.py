@@ -40,7 +40,7 @@ class RatingModel(Base):
             "user_id",
             "movie_id",
             name="uq_rating_user_movie"
-        )
+        ),
     )
 
     id: Mapped[int] = mapped_column(

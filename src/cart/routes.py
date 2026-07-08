@@ -17,24 +17,28 @@ from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from config.settings import SessionDep, JWTManagerDep
-from orders.models import (
+from src.security.dependencies import (
+    SessionDep,
+    JWTManagerDep,
+    get_token,
+    decode_token
+)
+from src.orders.models import (
     OrderItemModel,
     OrderModel,
     OrderStatusEnum
 )
-from security.dependencies import get_token, decode_token
-from cart.models import (
+from src.cart.models import (
     CartModel,
     CartItemModel
 )
-from cart.schemas import (
+from src.cart.schemas import (
     CartResponseSchema,
     CartItemResponseSchema,
     CartItemAddSchema
 )
-from movies.models import MovieModel
-from security.interfaces import JWTAuthManagerInterface
+from src.movies.models import MovieModel
+from src.security.interfaces import JWTAuthManagerInterface
 
 
 router = APIRouter(prefix="/cart", tags=["Cart"])

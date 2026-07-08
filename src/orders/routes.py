@@ -19,7 +19,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from accounts.models import UserModel
 from cart.models import CartModel, CartItemModel
-from config.settings import SessionDep, JWTManagerDep
+from src.security.dependencies import (
+    SessionDep,
+    JWTManagerDep
+)
 from movies.models import MovieModel
 from orders.models import (
     OrderModel,

@@ -25,7 +25,11 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config.settings import SessionDep, EmailSenderDep, JWTManagerDep
+from src.security.dependencies import (
+    SessionDep,
+    EmailSenderDep,
+    JWTManagerDep
+)
 from src.accounts.models import (
     UserModel,
     UserGroupModel,

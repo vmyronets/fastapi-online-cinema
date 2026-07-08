@@ -22,15 +22,15 @@ from sqlalchemy import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from movies.models import (
+from src.movies.models import (
     CommentModel,
     RatingModel,
     MovieLikeModel
 )
-from notifications import EmailSenderInterface
+from src.notifications import EmailSenderInterface
 from src.accounts.routes import SessionDep, JWTManagerDep
-from security.dependencies import get_token
-from security.exceptions import BaseSecurityError
+from src.security.dependencies import get_token
+from src.security.exceptions import BaseSecurityError
 from security.interfaces import JWTAuthManagerInterface
 from src.movies.models import (
     CertificationModel,
@@ -42,7 +42,7 @@ from src.movies.models import (
     CommentLikeModel,
     movie_genres
 )
-from movies.schemas import (
+from src.movies.schemas import (
     MovieListResponseSchema,
     MovieDetailResponseSchema,
     PaginatedResponseSchema,
@@ -66,7 +66,7 @@ from movies.schemas import (
 )
 from src.movies.services import (
     apply_movie_filters_and_sort,
-    get_paginated_response,
+    get_paginated_response
 )
 from src.accounts.models import (
     UserModel,
