@@ -17,7 +17,7 @@ from fastapi import (
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from accounts.models import UserModel, UserGroupEnum
+from accounts.models import UserModel
 from cart.models import CartModel, CartItemModel
 from config.settings import SessionDep, JWTManagerDep
 from movies.models import MovieModel
@@ -31,8 +31,11 @@ from src.orders.schemas import (
     OrderItemResponseSchema,
     OrderListResponseSchema
 )
-from src.security.dependencies import (get_token, decode_token,
-                                       require_admin_or_moderator, )
+from src.security.dependencies import (
+    get_token,
+    decode_token,
+    require_admin_or_moderator
+)
 from src.security.interfaces import JWTAuthManagerInterface
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
@@ -58,7 +61,7 @@ def _build_order_response(order: OrderModel) -> OrderResponseSchema:
             OrderItemResponseSchema(
                 id=item.id,
                 movie_id=item.movie_id,
-                price_at_order=item.price_at_order,
+                price_at_order=item.price_at_order
             )
             for item in order.items
         ]
@@ -74,7 +77,7 @@ def _build_order_response(order: OrderModel) -> OrderResponseSchema:
 async def create_order(
     db: SessionDep,
     jwt_manager: JWTManagerDep,
-    token: str = Depends(get_token),
+    token: str = Depends(get_token)
 ) -> OrderResponseSchema:
     """
     Create an order from the user's shopping cart.
@@ -277,7 +280,7 @@ async def cancel_order(
     db: SessionDep,
     jwt_manager: JWTManagerDep,
     order_id: int,
-    token: str = Depends(get_token),
+    token: str = Depends(get_token)
 ) -> OrderResponseSchema:
     """
     Cancel a pending order.

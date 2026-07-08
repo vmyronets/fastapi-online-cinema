@@ -99,7 +99,7 @@ async def _get_active_user(db: AsyncSession, user_id: int) -> UserModel:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or not active."
         )
-    return user
+    return cast(UserModel, user)
 
 
 async def _check_permission(
