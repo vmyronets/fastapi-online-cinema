@@ -145,7 +145,11 @@ class EmailSenderInterface(ABC):
         ...
 
     @abstractmethod
-    async def send_password_reset_complete_email(self, email: str, login_link: str) -> None:
+    async def send_password_reset_complete_email(
+            self,
+            email: str,
+            login_link: str
+    ) -> None:
         """
         It sends a message confirming the successful
         password reset asynchronously.
