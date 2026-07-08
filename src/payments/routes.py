@@ -4,6 +4,7 @@ API routes for the payments module.
 Provides endpoints for initiating payments via Stripe,
 handling webhooks, and viewing payment history.
 """
+from datetime import date
 
 import stripe
 import aiosmtplib
@@ -26,8 +27,9 @@ from fastapi import (
 from sqlalchemy import select, func, delete
 from sqlalchemy.orm import selectinload
 
+from accounts.models import UserModel, UserGroupEnum
+from config.settings import SessionDep, JWTManagerDep
 from movies.models import MovieModel
-from src.accounts.routes import SessionDep, JWTManagerDep
 from src.config import settings
 from src.cart.models import CartModel, CartItemModel
 from src.orders.models import OrderModel, OrderItemModel
@@ -43,37 +45,14 @@ from src.payments.schemas import (
     PaymentListResponseSchema,
     StripeCheckoutResponseSchema,
 )
-from src.security.dependencies import get_token
-from src.security.exceptions import BaseSecurityError
+from src.security.dependencies import (get_token, decode_token,
+                                       require_admin_or_moderator, )
 from src.security.interfaces import JWTAuthManagerInterface
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
 
 # Set Stripe secret key from environment variables
 stripe.api_key = settings.STRIPE_SECRET_KEY
-
-
-def _decode_token(token: str, jwt_manager: JWTAuthManagerInterface) -> dict:
-    """
-    Decode and validate a JWT access token.
-
-    Args:
-        token: The raw JWT token string.
-        jwt_manager: JWT manager instance for decoding.
-
-    Returns:
-        dict: The decoded token payload.
-
-    Raises:
-        HTTPException: If the token is invalid or expired.
-    """
-    try:
-        return jwt_manager.decode_access_token(token)
-    except BaseSecurityError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e)
-        )
 
 
 def _build_payment_response(payment: PaymentModel) -> PaymentResponseSchema:
@@ -211,7 +190,7 @@ async def pay_order(
     Raises:
         HTTPException: If order not found, not pending, or payment fails.
     """
-    payload = _decode_token(token, jwt_manager)
+    payload = decode_token(token, jwt_manager)
     user_id = payload.get("user_id")
 
     # Fetch order with its items
@@ -262,7 +241,7 @@ async def pay_order(
     for item in order.items:
         movie = movie_map[item.movie_id]
         current_price = movie.price
-        # item.price_at_order = current_price ???
+        item.price_at_order = current_price
         total_amount += current_price
 
         line_items.append({
@@ -271,7 +250,7 @@ async def pay_order(
                 "product_data": {
                     "name": movie.name
                 },
-                "unit_amount": int(current_price * 100),
+                "unit_amount": int(current_price * 100)
             },
             "quantity": 1
         })
@@ -346,7 +325,7 @@ async def list_payments(
     Returns:
         PaymentListResponseSchema: Paginated list of payments.
     """
-    payload = _decode_token(token, jwt_manager)
+    payload = decode_token(token, jwt_manager)
     user_id = payload.get("user_id")
 
     stmt = select(PaymentModel).where(PaymentModel.user_id == user_id)
@@ -364,10 +343,10 @@ async def list_payments(
     payments = result.scalars().unique().all()
 
     return PaymentListResponseSchema(
-        items=[_build_payment_response(p) for p in payments],
+        items=[_build_payment_response(payment) for payment in payments],
         total=total,
         page=page,
-        per_page=per_page,
+        per_page=per_page
     )
 
 
@@ -475,12 +454,78 @@ async def stripe_webhook(
 
 
 @router.get(
+    "/admin/payments",
+    response_model=PaymentListResponseSchema,
+    summary="Moderator/Admin: List all payments with filters"
+)
+async def admin_list_payments(
+        db: SessionDep,
+        current_user: UserModel = Depends(require_admin_or_moderator),
+        page: int = Query(1, ge=1),
+        per_page: int = Query(10, ge=1, le=100),
+        user_id: int | None = Query(
+            None,
+            description="Filter payments by user ID"
+        ),
+        payment_status: PaymentStatusEnum | None = Query(
+            None,
+            description="Filter payments by status"
+        ),
+        date_from: date | None = Query(
+            None,
+            description="Filter from date (YYYY-MM-DD)"
+        ),
+        date_to: date | None = Query(
+            None,
+            description="Filter to date (YYYY-MM-DD)"
+        )
+) -> PaymentListResponseSchema:
+    """
+    List all user payments with optional filters.
+    Accessible only by users in ADMIN or MODERATOR groups.
+    """
+
+    # Creating a basic query for Payments
+    stmt = select(PaymentModel)
+
+    # Applying filters
+    if user_id:
+        stmt = stmt.where(PaymentModel.user_id == user_id)
+    if payment_status:
+        stmt = stmt.where(PaymentModel.status == payment_status)
+    if date_from:
+        stmt = stmt.where(func.date(PaymentModel.created_at) >= date_from)
+    if date_to:
+        stmt = stmt.where(func.date(PaymentModel.created_at) <= date_to)
+
+    # Calculate the total count (for pagination)
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    total = (await db.execute(count_stmt)).scalar() or 0
+
+    # Pagination and sorting
+    stmt = (
+        stmt.order_by(PaymentModel.created_at.desc())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+    )
+    payments = (await db.execute(stmt)).scalars().unique().all()
+
+    return PaymentListResponseSchema(
+        items=[_build_payment_response(payment) for payment in payments],
+        total=total,
+        page=page,
+        per_page=per_page
+    )
+
+
+@router.get(
     "/success",
     response_class=HTMLResponse,
     include_in_schema=False
 )
 async def payment_success_page(session_id: str):
     """Simple HTML page to redirect users after successful payment."""
+
     return f"""
     <html>
         <body style="font-family: Arial; display: flex; flex-direction:
@@ -506,7 +551,8 @@ async def payment_cancel_page():
         <body style="font-family: Arial; display: flex; flex-direction: column;
          align-items: center; justify-content: center; height: 100vh; 
          background-color: #fef2f2;">
-            <h1 style="color: #dc2626;">Payment Canceled ❌</h1>
+            <h1 style="color: #dc2626;">Payment failed or was canceled ❌.
+                    Please try another payment method or another card.</h1>
             <p>The checkout process was aborted. No charges were made.</p>
         </body>
     </html>
