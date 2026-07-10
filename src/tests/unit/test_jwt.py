@@ -1,7 +1,17 @@
+"""
+Unit tests for JWT token creation and validation.
+
+Covers:
+- Access and refresh token creation.
+- Token decoding and type validation.
+- Expired and invalid token handling.
+"""
+
+
 import pytest
 
 from src.security.jwt_manager import JWTAuthManager
-from src.security.exceptions import InvalidTokenError
+from src.security.exceptions import InvalidTokenError, TokenExpiredError
 
 
 @pytest.fixture
@@ -63,3 +73,14 @@ class TestDecodeTokens:
     def test_empty_token(self, manager):
         with pytest.raises(InvalidTokenError):
             manager.decode_access_token("")
+
+
+class TestExpiredToken:
+    """Tests for expired token handling. """
+
+    def test_expired_access_token(self):
+        mgr = JWTAuthManager()
+        mgr.access_token_expire_minutes = -1  # already expired
+        token = mgr.create_access_token({"user_id": 1})
+        with pytest.raises((TokenExpiredError, InvalidTokenError)):
+            mgr.decode_access_token(token)
