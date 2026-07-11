@@ -3,7 +3,8 @@ from pydantic import ValidationError
 
 from src.accounts.schemas import (
     UserRegisterSchema,
-    LoginSchema
+    LoginSchema,
+    ActivationRequestSchema
 )
 
 
@@ -43,3 +44,19 @@ class TestLoginSchema:
     def test_invalid_email(self):
         with pytest.raises(ValidationError):
             LoginSchema(email="bad", password="password")
+
+
+class TestActivationRequestSchema:
+    """Tests for ActivationRequestSchema validation."""
+
+    def test_with_token(self):
+        schema = ActivationRequestSchema(token="abc123")
+        assert schema.token == "abc123"
+
+    def test_with_email(self):
+        schema = ActivationRequestSchema(email="user@example.com")
+        assert schema.email == "user@example.com"
+
+    def test_neither_provided(self):
+        with pytest.raises(ValidationError):
+            ActivationRequestSchema()
