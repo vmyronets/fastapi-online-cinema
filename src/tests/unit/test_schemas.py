@@ -4,7 +4,8 @@ from pydantic import ValidationError
 from src.accounts.schemas import (
     UserRegisterSchema,
     LoginSchema,
-    ActivationRequestSchema
+    ActivationRequestSchema,
+    ChangePasswordSchema
 )
 
 
@@ -60,3 +61,21 @@ class TestActivationRequestSchema:
     def test_neither_provided(self):
         with pytest.raises(ValidationError):
             ActivationRequestSchema()
+
+
+class TestChangePasswordSchema:
+    """Tests for ChangePasswordSchema validation."""
+
+    def test_valid(self):
+        schema = ChangePasswordSchema(
+            old_password="OldPass1!",
+            new_password="NewPass1!"
+        )
+        assert schema.new_password == "NewPass1!"
+
+    def test_new_password_too_short(self):
+        with pytest.raises(ValidationError):
+            ChangePasswordSchema(
+                old_password="OldPass1!",
+                new_password="short"
+            )
