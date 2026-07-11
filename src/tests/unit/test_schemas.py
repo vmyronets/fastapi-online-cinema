@@ -1,11 +1,13 @@
 import pytest
 from pydantic import ValidationError
 
+from src.accounts.models import UserGroupEnum
 from src.accounts.schemas import (
     UserRegisterSchema,
     LoginSchema,
     ActivationRequestSchema,
-    ChangePasswordSchema
+    ChangePasswordSchema,
+    AdminUserUpdateSchema
 )
 from src.cart.schemas import CartItemAddSchema
 
@@ -91,4 +93,21 @@ class TestCartItemAddSchema:
 
     def test_missing_movie_id(self):
         with pytest.raises(ValidationError):
-            CartItemAddSchema()
+            CartItemAddSchema(movie_id=None)
+
+
+class TestAdminUserUpdateSchema:
+    """Tests for AdminUserUpdateSchema validation."""
+
+    def test_all_none(self):
+        schema = AdminUserUpdateSchema()
+        assert schema.is_active is None
+        assert schema.group_name is None
+
+    def test_set_active(self):
+        schema = AdminUserUpdateSchema(is_active=True)
+        assert schema.is_active is True
+
+    def test_set_group_name(self):
+        schema = AdminUserUpdateSchema(group_name=UserGroupEnum.ADMIN)
+        assert schema.group_name == "ADMIN"
