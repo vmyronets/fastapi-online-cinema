@@ -1,3 +1,12 @@
+"""
+Unit tests for Pydantic schema validation.
+
+Covers:
+- Data validation logic for registration, login, and activation schemas.
+- Business rules enforced by model validators.
+"""
+
+
 import pytest
 from pydantic import ValidationError
 

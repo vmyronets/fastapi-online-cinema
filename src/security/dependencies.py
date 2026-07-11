@@ -11,10 +11,10 @@ from fastapi import Header, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import get_db
-from notifications import EmailSenderInterface
-from notifications.emails import get_email_sender
-from security.exceptions import BaseSecurityError
+from src.database import get_db
+from src.notifications import EmailSenderInterface
+from src.notifications.emails import get_email_sender
+from src.security.exceptions import BaseSecurityError
 from src.accounts.models import UserModel, UserGroupEnum
 
 from src.security.interfaces import JWTAuthManagerInterface, S3StorageInterface
