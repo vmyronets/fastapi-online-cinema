@@ -2,7 +2,8 @@ import pytest
 from pydantic import ValidationError
 
 from src.accounts.schemas import (
-    UserRegisterSchema
+    UserRegisterSchema,
+    LoginSchema
 )
 
 
@@ -30,3 +31,15 @@ class TestUserRegisterSchema:
     def test_password_too_long(self):
         with pytest.raises(ValidationError):
             UserRegisterSchema(email="user@example.com", password="A" * 129)
+
+
+class TestLoginSchema:
+    """Tests for LoginSchema validation."""
+
+    def test_valid_login(self):
+        schema = LoginSchema(email="user@example.com", password="password")
+        assert schema.email == "user@example.com"
+
+    def test_invalid_email(self):
+        with pytest.raises(ValidationError):
+            LoginSchema(email="bad", password="password")
