@@ -7,6 +7,7 @@ from src.accounts.schemas import (
     ActivationRequestSchema,
     ChangePasswordSchema
 )
+from src.cart.schemas import CartItemAddSchema
 
 
 class TestUserRegisterSchema:
@@ -79,3 +80,15 @@ class TestChangePasswordSchema:
                 old_password="OldPass1!",
                 new_password="short"
             )
+
+
+class TestCartItemAddSchema:
+    """Tests for CartItemAddSchema validation."""
+
+    def test_valid(self):
+        schema = CartItemAddSchema(movie_id=1)
+        assert schema.movie_id == 1
+
+    def test_missing_movie_id(self):
+        with pytest.raises(ValidationError):
+            CartItemAddSchema()
