@@ -23,13 +23,21 @@ passlib = "^1.7.4"
 boto3 = "^1.34.0"
 aioboto3 = "^13.4.0"
 stripe = "^15.3.0"
+python-multipart = "^0.0.32"
+emails = "^1.1.2"
+jinja2 = "^3.1.6"
+
+[tool.poetry.group.dev.dependencies]
 pytest = "^9.1.1"
 pytest-asyncio = "^1.4.0"
+pytest-cov = "^7.1.0"
+httpx = "^0.28.1"
 aiosqlite = "^0.22.1"
-
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
-
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
