@@ -21,7 +21,7 @@ class EmailSender(EmailSenderInterface):
     def __init__(self) -> None:
         self._hostname = settings.SMTP_HOST
         self._port = settings.SMTP_PORT
-        self._email = settings.MAIL_FROM
+        self._email = settings.EMAIL_FROM
         self._password = settings.SMTP_PASSWORD
         self._use_tls = settings.SMTP_USE_TLS
 
@@ -67,8 +67,7 @@ class EmailSender(EmailSenderInterface):
                 start_tls=self._use_tls
             )
             await smtp.connect()
-            if self._use_tls:
-                await smtp.starttls()
+
             # Log in only if you have a password
             if self._password:
                 await smtp.login(self._email, self._password)
