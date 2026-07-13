@@ -179,3 +179,41 @@ class TestTokenRefresh:
             json={"refresh_token": "invalid-token"}
         )
         assert resp.status_code in (400, 401)
+
+
+class TestChangePassword:
+    """Tests for password change endpoint."""
+
+    async def test_change_password_success(
+            self,
+            client: AsyncClient,
+            db_session: AsyncSession
+    ) -> None:
+        """Check if password change succeeds with valid credentials."""
+        user = await create_test_user(
+            db_session,
+            email="chpw@example.com",
+            password="OldPass1!"
+        )
+        tokens = await login_test_user(client, user.email, "OldPass1!")
+        resp = await client.post(
+            "/api/v1/accounts/password/change/",
+            json={"old_password": "OldPass1!", "new_password": "NewPass1!"},
+            headers={"Authorization": f"Bearer {tokens['access_token']}"}
+        )
+        assert resp.status_code == 200
+
+    async def test_change_password_wrong_old(
+            self,
+            client: AsyncClient,
+            db_session: AsyncSession
+    ) -> None:
+        """Check if password change fails with invalid old password."""
+        user = await create_test_user(db_session, email="chpw2@example.com")
+        tokens = await login_test_user(client, user.email)
+        resp = await client.post(
+            "/api/v1/accounts/password/change/",
+            json={"old_password": "WrongOld1!", "new_password": "NewPass1!"},
+            headers={"Authorization": f"Bearer {tokens['access_token']}"}
+        )
+        assert resp.status_code in (400, 401)
