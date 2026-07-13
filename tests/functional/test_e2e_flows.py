@@ -1,3 +1,15 @@
+"""
+Functional (end-to-end) tests covering complete user scenarios.
+
+Covers:
+- Registration → login flow.
+- Movie browsing and filtering.
+- User interacts with a movie successfully.
+- Cart → order placement flow.
+- Authentication lifecycle (login, use token, logout).
+"""
+
+
 from decimal import Decimal
 
 from httpx import AsyncClient
