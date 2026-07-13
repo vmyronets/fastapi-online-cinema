@@ -213,3 +213,68 @@ class TestCartToOrderFlow:
         assert "orders" in orders or "items" in orders or isinstance(
             orders, list
         )
+
+
+class TestMovieInteractionFlow:
+    """
+    End-to-end: authenticated user interacts
+    with a movie (comment, rate, favorite, like).
+    """
+
+    async def test_full_movie_interaction(
+            self,
+            client: AsyncClient,
+            db_session: AsyncSession
+    ) -> None:
+        user = await create_test_user(
+            db_session,
+            email="interact@example.com"
+        )
+        tokens = await login_test_user(client, user.email)
+        movie = await create_test_movie(db_session)
+        headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+
+        # Add comment
+        resp = await client.post(
+            f"/api/v1/movies/{movie.id}/comments/",
+            json={"content": "Amazing film!"},
+            headers=headers
+        )
+        assert resp.status_code in (200, 201)
+
+        # Rate movie
+        resp = await client.post(
+            f"/api/v1/movies/{movie.id}/ratings/",
+            json={"score": 9},
+            headers=headers
+        )
+        assert resp.status_code in (200, 201)
+
+        # Add to favorites
+        resp = await client.post(
+            f"/api/v1/movies/{movie.id}/favorites/",
+            headers=headers
+        )
+        assert resp.status_code in (200, 201)
+
+        # Like movie
+        resp = await client.post(
+            f"/api/v1/movies/{movie.id}/likes/",
+            json={"is_like": True},
+            headers=headers
+        )
+        assert resp.status_code in (200, 201)
+
+        # View favorites
+        resp = await client.get(
+            f"/api/v1/movies/favorites/",
+            headers=headers
+        )
+        assert resp.status_code == 200
+
+        # Remove from favorites
+        resp = await client.delete(
+            f"/api/v1/movies/{movie.id}/favorites/",
+            headers=headers
+        )
+        assert resp.status_code == 200
