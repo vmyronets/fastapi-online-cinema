@@ -1,9 +1,13 @@
 from httpx import AsyncClient
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.accounts.models.user import UserModel
-from sqlalchemy import update
-from tests.conftest import _seed_groups
+from tests.conftest import (
+    _seed_groups,
+    create_test_user,
+    login_test_user
+)
 
 
 class TestRegistrationLoginFlow:
@@ -48,8 +52,63 @@ class TestRegistrationLoginFlow:
         assert "refresh_token" in tokens
 
         # Use access token to access protected endpoint
-        cart_resp = await client.get(
+        cart_response = await client.get(
             "/api/v1/cart/",
             headers={"Authorization": f"Bearer {tokens['access_token']}"}
         )
-        assert cart_resp.status_code == 200
+        assert cart_response.status_code == 200
+
+
+class TestAuthLifecycle:
+    """
+    End-to-end: login, use token, change password,
+    logout and check that refresh token is revoked.
+    """
+
+    async def test_full_auth_lifecycle(
+            self,
+            client: AsyncClient,
+            db_session: AsyncSession,
+    ) -> None:
+
+        user = await create_test_user(
+            db_session,
+            email="lifecycle@example.com",
+            password="OldPass1!"
+        )
+
+        tokens = await login_test_user(
+            client,
+            user.email,
+            "OldPass1!"
+        )
+        headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+
+        # Use token to access protected resource
+        resp = await client.get("/api/v1/cart/", headers=headers)
+        assert resp.status_code == 200
+
+        # Change password
+        resp = await client.post(
+            "/api/v1/accounts/password/change/",
+            json={"old_password": "OldPass1!", "new_password": "NewPass1!"},
+            headers=headers
+        )
+        assert resp.status_code == 200
+
+        # Logout
+        resp = await client.post(
+            "/api/v1/accounts/logout/",
+            headers=headers,
+            json={"refresh_token": tokens["refresh_token"]}
+        )
+        assert resp.status_code == 200
+
+        resp = await client.post(
+            "/api/v1/accounts/token/refresh/",
+            json={
+                "refresh_token": tokens["refresh_token"]
+            }
+        )
+
+        assert resp.status_code == 401
