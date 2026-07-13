@@ -167,3 +167,15 @@ class TestLogout:
         """Check if user logout fails without token."""
         resp = await client.post("/api/v1/accounts/logout/")
         assert resp.status_code == 422
+
+
+class TestTokenRefresh:
+    """Tests for token refresh endpoint."""
+
+    async def test_refresh_invalid_token(self, client: AsyncClient) -> None:
+        """Check if token refresh fails with invalid token."""
+        resp = await client.post(
+            "/api/v1/accounts/token/refresh/",
+            json={"refresh_token": "invalid-token"}
+        )
+        assert resp.status_code in (400, 401)
