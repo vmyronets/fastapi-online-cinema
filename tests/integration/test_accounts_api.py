@@ -1,6 +1,7 @@
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.accounts.models import UserGroupEnum
 from tests.conftest import (
     create_test_user,
     _seed_groups,
@@ -217,3 +218,50 @@ class TestChangePassword:
             headers={"Authorization": f"Bearer {tokens['access_token']}"}
         )
         assert resp.status_code in (400, 401)
+
+
+class TestAdminUpdateUser:
+    """Tests for admin user update endpoint."""
+
+    async def test_non_admin_forbidden(
+            self,
+            client: AsyncClient,
+            db_session: AsyncSession
+    ) -> None:
+        """Check if non-admin user cannot update another user."""
+        user = await create_test_user(
+            db_session,
+            email="regular@example.com",
+            group_name=UserGroupEnum.USER
+        )
+        tokens = await login_test_user(client, user.email)
+        resp = await client.patch(
+            f"/api/v1/accounts/admin/users/{user.id}/",
+            json={"is_active": True},
+            headers={"Authorization": f"Bearer {tokens['access_token']}"}
+        )
+        assert resp.status_code in (403, 401)
+
+    async def test_admin_can_update(
+            self,
+            client: AsyncClient,
+            db_session: AsyncSession
+    ) -> None:
+        """Check if admin user can update another user."""
+        admin = await create_test_user(
+            db_session,
+            email="admin@example.com",
+            group_name=UserGroupEnum.ADMIN
+        )
+        admin_tokens = await login_test_user(client, admin.email)
+        target = await create_test_user(
+            db_session,
+            email="target@example.com",
+            is_active=False
+        )
+        resp = await client.patch(
+            f"/api/v1/accounts/admin/users/{target.id}/",
+            json={"is_active": True},
+            headers={"Authorization": f"Bearer {admin_tokens['access_token']}"}
+        )
+        assert resp.status_code == 200
