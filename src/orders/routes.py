@@ -17,14 +17,14 @@ from fastapi import (
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from accounts.models import UserModel
-from cart.models import CartModel, CartItemModel
+from src.accounts.models import UserModel
+from src.cart.models import CartModel, CartItemModel
 from src.security.dependencies import (
     SessionDep,
     JWTManagerDep
 )
-from movies.models import MovieModel
-from orders.models import (
+from src.movies.models import MovieModel
+from src.orders.models import (
     OrderModel,
     OrderItemModel,
     OrderStatusEnum

@@ -128,7 +128,7 @@ async def get_cart(
     # Fetch cart items.
     stmt = select(CartItemModel).where(
         CartItemModel.cart_id == cart.id
-    ).options(joinedload(CartItemModel.movie).joinedload(MovieModel.genres))
+    ).options(joinedload(CartItemModel.movie).selectinload(MovieModel.genres))
     result = await db.execute(stmt)
     items = result.scalars().all()
 

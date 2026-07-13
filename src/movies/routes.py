@@ -31,7 +31,7 @@ from src.notifications import EmailSenderInterface
 from src.accounts.routes import SessionDep, JWTManagerDep
 from src.security.dependencies import get_token
 from src.security.exceptions import BaseSecurityError
-from security.interfaces import JWTAuthManagerInterface
+from src.security.interfaces import JWTAuthManagerInterface
 from src.movies.models import (
     CertificationModel,
     DirectorModel,
@@ -525,7 +525,7 @@ async def list_favorites(
 @router.get(
     "/{movie_id}/",
     response_model=MovieDetailResponseSchema,
-    summary="Get movie details",
+    summary="Get movie details"
 )
 async def get_movie(
         movie_id: int,
@@ -565,13 +565,13 @@ async def get_movie(
     "/",
     response_model=MovieDetailResponseSchema,
     summary="Create a movie (moderator)",
-    status_code=status.HTTP_201_CREATED,
+    status_code=status.HTTP_201_CREATED
 )
 async def create_movie(
         data: MovieCreateSchema,
         db: SessionDep,
         jwt_manager: JWTManagerDep,
-        token: str = Depends(get_token),
+        token: str = Depends(get_token)
 ) -> MovieDetailResponseSchema:
     """
     Create a new movie entry (moderator/admin only).
@@ -619,7 +619,7 @@ async def create_movie(
         gross=data.gross,
         description=data.description,
         price=data.price,
-        certification_id=data.certification_id,
+        certification_id=data.certification_id
     )
 
     # Attach genres.
@@ -657,14 +657,14 @@ async def create_movie(
 @router.patch(
     "/{movie_id}/",
     response_model=MovieDetailResponseSchema,
-    summary="Update a movie (moderator)",
+    summary="Update a movie (moderator)"
 )
 async def update_movie(
     movie_id: int,
     db: SessionDep,
     jwt_manager: JWTManagerDep,
     data: MovieUpdateSchema,
-    token: str = Depends(get_token),
+    token: str = Depends(get_token)
 ) -> MovieDetailResponseSchema:
     """
     Update an existing movie (moderator/admin only).
@@ -749,13 +749,13 @@ async def update_movie(
 @router.delete(
     "/{movie_id}/",
     response_model=dict,
-    summary="Delete a movie (moderator)",
+    summary="Delete a movie (moderator)"
 )
 async def delete_movie(
     movie_id: int,
     db: SessionDep,
     jwt_manager: JWTManagerDep,
-    token: str = Depends(get_token),
+    token: str = Depends(get_token)
 ) -> dict:
     """
     Delete a movie (moderator/admin only).
@@ -796,7 +796,7 @@ async def delete_movie(
     if purchase_result.scalars().first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot delete a movie that has been purchased.",
+            detail="Cannot delete a movie that has been purchased."
         )
 
     await db.delete(movie)
@@ -813,7 +813,7 @@ async def delete_movie(
     "/{movie_id}/comments/",
     response_model=CommentResponseSchema,
     summary="Add a comment to a movie",
-    status_code=status.HTTP_201_CREATED,
+    status_code=status.HTTP_201_CREATED
 )
 async def create_comment(
     movie_id: int,
@@ -822,7 +822,7 @@ async def create_comment(
     data: CommentCreateSchema,
     background_tasks: BackgroundTasks,
     token: str = Depends(get_token),
-    email_sender: EmailSenderInterface = Depends(get_email_sender),
+    email_sender: EmailSenderInterface = Depends(get_email_sender)
 ) -> CommentResponseSchema:
     """
     Add a comment to a movie.
@@ -854,7 +854,7 @@ async def create_comment(
         user_id=user_id,
         movie_id=movie_id,
         content=data.content,
-        parent_id=data.parent_id,
+        parent_id=data.parent_id
     )
     db.add(comment)
     await db.commit()
@@ -902,7 +902,7 @@ async def create_comment(
     "/comments/{comment_id}/likes/",
     response_model=CommentLikeResponseSchema,
     summary="Like or dislike a comment",
-    status_code=status.HTTP_201_CREATED,
+    status_code=status.HTTP_201_CREATED
 )
 async def like_comment(
         comment_id: int,
@@ -911,7 +911,7 @@ async def like_comment(
         data: CommentLikeCreateSchema,
         background_tasks: BackgroundTasks,
         email_sender: EmailSenderInterface = Depends(get_email_sender),
-        token: str = Depends(get_token),
+        token: str = Depends(get_token)
 ) -> CommentLikeResponseSchema:
 
     payload = _decode_token(token, jwt_manager)
@@ -982,7 +982,7 @@ async def like_comment(
 @router.get(
     "/{movie_id}/comments/",
     response_model=list[CommentResponseSchema],
-    summary="List comments for a movie",
+    summary="List comments for a movie"
 )
 async def list_comments(
     movie_id: int,
@@ -1013,7 +1013,7 @@ async def list_comments(
             movie_id=comment.movie_id,
             content=comment.content,
             parent_id=comment.parent_id,
-            created_at=comment.created_at,
+            created_at=comment.created_at
         )
         for comment in comments
     ]
@@ -1027,14 +1027,14 @@ async def list_comments(
     "/{movie_id}/ratings/",
     response_model=RatingResponseSchema,
     summary="Rate a movie",
-    status_code=status.HTTP_201_CREATED,
+    status_code=status.HTTP_201_CREATED
 )
 async def rate_movie(
     movie_id: int,
     db: SessionDep,
     jwt_manager: JWTManagerDep,
     data: RatingCreateSchema,
-    token: str = Depends(get_token),
+    token: str = Depends(get_token)
 ) -> RatingResponseSchema:
     """
     Rate a movie on a 1-10 scale.
@@ -1097,13 +1097,13 @@ async def rate_movie(
     "/{movie_id}/favorites/",
     response_model=FavoriteResponseSchema,
     summary="Add movie to favorites",
-    status_code=status.HTTP_201_CREATED,
+    status_code=status.HTTP_201_CREATED
 )
 async def add_favorite(
     movie_id: int,
     db: SessionDep,
     jwt_manager: JWTManagerDep,
-    token: str = Depends(get_token),
+    token: str = Depends(get_token)
 ) -> FavoriteResponseSchema:
     """
     Add a movie to the user's favorites.
@@ -1151,13 +1151,13 @@ async def add_favorite(
 @router.delete(
     "/{movie_id}/favorites/",
     response_model=dict,
-    summary="Remove movie from favorites",
+    summary="Remove movie from favorites"
 )
 async def remove_favorite(
     movie_id: int,
     db: SessionDep,
     jwt_manager: JWTManagerDep,
-    token: str = Depends(get_token),
+    token: str = Depends(get_token)
 ) -> dict:
     """
     Remove a movie from the user's favorites.
@@ -1203,14 +1203,14 @@ async def remove_favorite(
     "/{movie_id}/likes/",
     response_model=MovieLikeResponseSchema,
     summary="Like or dislike a movie",
-    status_code=status.HTTP_201_CREATED,
+    status_code=status.HTTP_201_CREATED
 )
 async def like_movie(
     movie_id: int,
     db: SessionDep,
     jwt_manager: JWTManagerDep,
     data: MovieLikeCreateSchema,
-    token: str = Depends(get_token),
+    token: str = Depends(get_token)
 ) -> MovieLikeResponseSchema:
     """
     Like or dislike a movie.
@@ -1268,7 +1268,7 @@ async def like_movie(
 @router.get(
     "/stars/",
     response_model=PaginatedResponseSchema,
-    summary="List all stars/actors with pagination",
+    summary="List all stars/actors with pagination"
 )
 async def list_stars(
         db: SessionDep,
@@ -1314,11 +1314,11 @@ async def list_stars(
 @router.get(
     "/stars/{star_id}/",
     response_model=StarResponseSchema,
-    summary="Get star details",
+    summary="Get star details"
 )
 async def get_star(
         star_id: int,
-        db: SessionDep,
+        db: SessionDep
 ) -> StarResponseSchema:
     """
     Get details of a specific star/actor by ID.
@@ -1382,14 +1382,14 @@ async def create_star(
 @router.patch(
     "/stars/{star_id}/",
     response_model=StarResponseSchema,
-    summary="Update a star (moderator)",
+    summary="Update a star (moderator)"
 )
 async def update_star(
         star_id: int,
         db: SessionDep,
         jwt_manager: JWTManagerDep,
         data: StarUpdateSchema,
-        token: str = Depends(get_token),
+        token: str = Depends(get_token)
 ) -> StarResponseSchema:
     """
     Update a star's information (moderator/admin only).
@@ -1431,13 +1431,13 @@ async def update_star(
 @router.delete(
     "/stars/{star_id}/",
     response_model=dict,
-    summary="Delete a star (moderator)",
+    summary="Delete a star (moderator)"
 )
 async def delete_star(
         star_id: int,
         db: SessionDep,
         jwt_manager: JWTManagerDep,
-        token: str = Depends(get_token),
+        token: str = Depends(get_token)
 ) -> dict:
     """
     Delete a star/actor (moderator/admin only).

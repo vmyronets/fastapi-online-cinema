@@ -12,7 +12,7 @@ from src.movies.models import (
     StarModel,
     DirectorModel
 )
-from movies.schemas import PaginatedResponseSchema
+from src.movies.schemas import PaginatedResponseSchema
 
 
 def apply_movie_filters_and_sort(
