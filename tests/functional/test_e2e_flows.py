@@ -151,3 +151,65 @@ class TestMovieBrowsingFlow:
         # List genres
         resp = await client.get("/api/v1/movies/genres/")
         assert resp.status_code == 200
+
+
+class TestCartToOrderFlow:
+    """
+    End-to-end: add movies to cart, create order, view orders.
+    Check that order creation and viewing work correctly.
+    """
+
+    async def test_cart_to_order(
+            self,
+            client: AsyncClient,
+            db_session: AsyncSession,
+    ):
+        user = await create_test_user(
+            db_session,
+            email="order@example.com"
+        )
+        tokens = await login_test_user(client, user.email)
+        movie1 = await create_test_movie(
+            db_session,
+            name="Movie 1",
+            price=Decimal("9.99")
+        )
+        movie2 = await create_test_movie(
+            db_session,
+            name="Movie 2",
+            year=2023,
+            time=90,
+            price=Decimal("14.99")
+        )
+        headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+
+        # Add movies to cart
+        resp = await client.post(
+            "/api/v1/cart/items/",
+            json={"movie_id": movie1.id},
+            headers=headers
+        )
+        assert resp.status_code in (200, 201)
+
+        resp = await client.post(
+            "/api/v1/cart/items/",
+            json={"movie_id": movie2.id},
+            headers=headers
+        )
+        assert resp.status_code in (200, 201)
+
+        # View cart
+        resp = await client.get("/api/v1/cart/", headers=headers)
+        assert resp.status_code == 200
+
+        # Create order from cart
+        resp = await client.post("/api/v1/orders/", headers=headers)
+        assert resp.status_code in (200, 201)
+
+        # View orders
+        resp = await client.get("/api/v1/orders/", headers=headers)
+        assert resp.status_code == 200
+        orders = resp.json()
+        assert "orders" in orders or "items" in orders or isinstance(
+            orders, list
+        )
