@@ -1,7 +1,11 @@
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.conftest import create_test_user, _seed_groups
+from tests.conftest import (
+    create_test_user,
+    _seed_groups,
+    login_test_user
+)
 
 
 class TestHealthCheck:
@@ -139,3 +143,27 @@ class TestLogin:
             json={"email": "inactive@example.com", "password": "TestPass1!"}
         )
         assert resp.status_code in (400, 403)
+
+
+class TestLogout:
+    """Tests for logout endpoint."""
+
+    async def test_logout_success(
+            self,
+            client: AsyncClient,
+            db_session: AsyncSession
+    ) -> None:
+        """Test logout endpoint with valid token."""
+        user = await create_test_user(db_session, email="logout@example.com")
+        tokens = await login_test_user(client, user.email)
+        resp = await client.post(
+            "/api/v1/accounts/logout/",
+            headers={"Authorization": f"Bearer {tokens['refresh_token']}"},
+            json={"refresh_token": tokens["refresh_token"]}
+        )
+        assert resp.status_code == 200
+
+    async def test_logout_no_token(self, client: AsyncClient) -> None:
+        """Check if user logout fails without token."""
+        resp = await client.post("/api/v1/accounts/logout/")
+        assert resp.status_code == 422
