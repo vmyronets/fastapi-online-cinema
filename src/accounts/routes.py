@@ -193,7 +193,7 @@ async def register(
     if result.scalars().first():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="A user with this email already exists.",
+            detail="A user with this email already exists."
         )
 
     # Get default USER group.
@@ -372,7 +372,7 @@ async def activate_account_get(
             db,
             background_tasks,
             request,
-            email_sender,
+            email_sender
         )
         return """
         <html><body style="font-family: sans-serif; text-align: center; margin-top: 50px;">
@@ -386,7 +386,7 @@ async def activate_account_get(
             <h2 style="color: red;">Activation failed! 🚨</h2>
             <p>{e.detail}</p>
         </body></html>
-"""
+        """
 
 
 @router.post(
@@ -396,7 +396,7 @@ async def activate_account_get(
 )
 async def resend_activation(
     data: ResendActivationSchema,
-    db: SessionDep,
+    db: SessionDep
 ) -> MessageSchema:
     """
     Resend activation token for an inactive account.
@@ -462,12 +462,12 @@ async def resend_activation(
 @router.post(
     "/login/",
     response_model=TokenResponseSchema,
-    summary="User login",
+    summary="User login"
 )
 async def login(
     data: LoginSchema,
     db: SessionDep,
-    jwt_manager: JWTManagerDep,
+    jwt_manager: JWTManagerDep
 ) -> TokenResponseSchema:
     """
     Authenticate user and issue JWT token pair.
@@ -528,11 +528,11 @@ async def login(
 @router.post(
     "/logout/",
     response_model=MessageSchema,
-    summary="User logout",
+    summary="User logout"
 )
 async def logout(
     data: RefreshTokenSchema,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db)
 ) -> MessageSchema:
     """
     Logout user by revoking their current refresh token.

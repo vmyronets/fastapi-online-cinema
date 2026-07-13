@@ -200,17 +200,16 @@ async def _seed_groups(session: AsyncSession):
 
 
 # ---------------------------------------------------------------------------
-# Helper: create a user and return (user, access_token)
+# Helper: create a user the database and return
 # ---------------------------------------------------------------------------
 async def create_test_user(
     session: AsyncSession,
-    jwt_manager: JWTAuthManager,
     email: str = "test@example.com",
     password: str = "TestPass1!",
     is_active: bool = True,
     group_name: UserGroupEnum = UserGroupEnum.USER
-) -> tuple[UserModel, str]:
-    """Create a user in the DB and return (UserModel, access_token)."""
+) -> UserModel:
+    """Create a test user in the database and return the UserModel."""
 
     await _seed_groups(session)
 
@@ -226,14 +225,33 @@ async def create_test_user(
         email=email,
         hashed_password=hash_password(password),
         is_active=is_active,
-        group_id=group.id,
+        group_id=group.id
     )
     session.add(user)
     await session.commit()
     await session.refresh(user)
 
-    access_token = jwt_manager.create_access_token({"user_id": user.id})
-    return user, access_token
+    return user
+
+
+# ---------------------------------------------------------------------------
+# Helper: log in a user and return access and refresh tokens
+# ---------------------------------------------------------------------------
+async def login_test_user(
+        client: AsyncClient,
+        email: str = "test@example.com",
+        password: str = "TestPass1!"
+) -> dict:
+    """
+    Log in user and return access and refresh tokens as dict.
+    """
+    response = await client.post(
+        "/api/v1/accounts/login/",
+        json={"email": email, "password": password}
+    )
+    assert response.status_code == 200, response.text
+
+    return response.json()
 
 
 # ---------------------------------------------------------------------------
