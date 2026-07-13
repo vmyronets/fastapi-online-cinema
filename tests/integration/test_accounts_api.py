@@ -73,3 +73,69 @@ class TestRegister:
             json={"email": "not-email", "password": "StrongP@ss1"}
         )
         assert resp.status_code == 422
+
+
+class TestLogin:
+    """Tests for login endpoint and JWT token issuance."""
+
+    async def test_login_success(
+            self,
+            client: AsyncClient,
+            db_session: AsyncSession
+    ) -> None:
+        """
+        Check if user login succeeds with valid credentials.
+        """
+        await create_test_user(
+            db_session,
+            email="login@example.com",
+            password="StrongP@ss1"
+        )
+        resp = await client.post(
+            "/api/v1/accounts/login/",
+            json={"email": "login@example.com", "password": "StrongP@ss1"}
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "access_token" in data
+        assert "refresh_token" in data
+
+    async def test_login_wrong_password(
+            self,
+            client: AsyncClient,
+            db_session: AsyncSession
+    ) -> None:
+        """
+        Check if user login fails with invalid password.
+        """
+        await create_test_user(db_session, email="login2@example.com")
+        resp = await client.post(
+            "/api/v1/accounts/login/",
+            json={"email": "login2@example.com", "password": "WrongPass1!"}
+        )
+        assert resp.status_code in (400, 401)
+
+    async def test_login_nonexistent_user(self, client: AsyncClient) -> None:
+        """Check if user login fails with nonexistent user."""
+        resp = await client.post(
+            "/api/v1/accounts/login/",
+            json={"email": "ghost@example.com", "password": "StrongP@ss1"}
+        )
+        assert resp.status_code in (400, 401, 404)
+
+    async def test_login_inactive_user(
+            self,
+            client: AsyncClient,
+            db_session: AsyncSession
+    ) -> None:
+        """Check if user login fails with inactive user."""
+        await create_test_user(
+            db_session,
+            email="inactive@example.com",
+            is_active=False
+        )
+        resp = await client.post(
+            "/api/v1/accounts/login/",
+            json={"email": "inactive@example.com", "password": "TestPass1!"}
+        )
+        assert resp.status_code in (400, 403)
