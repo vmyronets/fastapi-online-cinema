@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from httpx import AsyncClient
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,7 +8,8 @@ from src.accounts.models.user import UserModel
 from tests.conftest import (
     _seed_groups,
     create_test_user,
-    login_test_user
+    login_test_user,
+    create_test_movie
 )
 
 
@@ -112,3 +115,39 @@ class TestAuthLifecycle:
         )
 
         assert resp.status_code == 401
+
+
+class TestMovieBrowsingFlow:
+    """End-to-end: browse movies, view details, filter."""
+
+    async def test_browse_and_filter(
+            self,
+            client: AsyncClient,
+            db_session: AsyncSession
+    ) -> None:
+
+        await create_test_movie(
+            db_session,
+            name="Action Movie",
+            year=2024,
+            price=Decimal("12.99")
+        )
+        await create_test_movie(
+            db_session,
+            name="Drama Movie",
+            year=2020,
+            time=90,
+            price=Decimal("8.99")
+        )
+
+        # List all movies
+        resp = await client.get("/api/v1/movies/")
+        assert resp.status_code == 200
+
+        # Get specific movie
+        resp = await client.get("/api/v1/movies/1/")
+        assert resp.status_code == 200
+
+        # List genres
+        resp = await client.get("/api/v1/movies/genres/")
+        assert resp.status_code == 200
