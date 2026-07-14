@@ -31,3 +31,25 @@ class TestMovieList:
         assert resp.status_code == 200
         data = resp.json()
         assert len(data["items"]) == 2
+
+
+class TestMovieDetail:
+    """Tests for movie detail endpoint."""
+
+    async def test_get_detailed_movie(
+            self,
+            client: AsyncClient,
+            db_session: AsyncSession
+    ) -> None:
+        """Tests that the movie detail endpoint returns a movie."""
+        movie = await create_test_movie(db_session)
+        resp = await client.get(f"/api/v1/movies/{movie.id}/")
+        assert resp.status_code == 200
+
+    async def test_get_nonexistent_movie(self, client: AsyncClient) -> None:
+        """
+        Tests that the movie detail endpoint
+        returns a 404 for a nonexistent movie.
+        """
+        resp = await client.get("/api/v1/movies/99999/")
+        assert resp.status_code == 404
