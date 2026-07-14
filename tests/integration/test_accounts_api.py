@@ -1,3 +1,13 @@
+"""
+Integration tests for accounts API endpoints.
+
+Covers:
+- Interaction between endpoints and the database.
+- Authentication workflows including JWT processing.
+- Error handling for invalid inputs.
+"""
+
+
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
