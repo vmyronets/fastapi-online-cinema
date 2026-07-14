@@ -53,3 +53,12 @@ class TestMovieDetail:
         """
         resp = await client.get("/api/v1/movies/99999/")
         assert resp.status_code == 404
+
+
+class TestGenres:
+    """Tests for genre endpoints."""
+
+    async def test_list_genres(self, client: AsyncClient) -> None:
+        """Tests that the genre listing endpoint returns a list of genres."""
+        resp = await client.get("/api/v1/movies/genres/")
+        assert resp.status_code == 200
