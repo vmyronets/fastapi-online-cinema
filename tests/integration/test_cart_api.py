@@ -85,3 +85,48 @@ class TestCartAddItem:
             headers={"Authorization": f"Bearer {tokens["access_token"]}"}
         )
         assert resp.status_code in (400, 404)
+
+
+class TestCartRemoveItem:
+    """Tests for removing items from cart."""
+
+    async def test_remove_item(
+            self,
+            client: AsyncClient,
+            db_session: AsyncSession
+    ) -> None:
+        """Tests removing item from cart."""
+        user = await create_test_user(
+            db_session,
+            email="test@removefromcart.com"
+        )
+        tokens = await login_test_user(client, user.email)
+        movie = await create_test_movie(db_session)
+        headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+        await client.post(
+            "/api/v1/cart/items/",
+            json={"movie_id": movie.id},
+            headers=headers
+        )
+        resp = await client.delete(
+            f"/api/v1/cart/items/{movie.id}/",
+            headers=headers
+        )
+        assert resp.status_code == 200
+
+    async def test_remove_nonexistent_item(
+            self,
+            client: AsyncClient,
+            db_session: AsyncSession
+    ) -> None:
+        """Test removing nonexistent item from cart fails."""
+        user = await create_test_user(
+            db_session,
+            email="test@removefromcart.com"
+        )
+        tokens = await login_test_user(client, user.email)
+        resp = await client.delete(
+            "/api/v1/cart/items/99999/",
+            headers={"Authorization": f"Bearer {tokens['access_token']}"}
+        )
+        assert resp.status_code in (400, 404)
