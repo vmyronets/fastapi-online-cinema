@@ -120,8 +120,8 @@ class TestMovieRatings:
             db_session: AsyncSession
     ) -> None:
         """Checks that rating a movie returns a 200 or 201 status code."""
-        user = await create_test_user(db_session)
-        tokens = await login_test_user(client)
+        user = await create_test_user(db_session, email="test@rating.com")
+        tokens = await login_test_user(client, user.email)
         movie = await create_test_movie(db_session)
         resp = await client.post(
             f"/api/v1/movies/{movie.id}/ratings/",
@@ -129,3 +129,36 @@ class TestMovieRatings:
             headers={"Authorization": f"Bearer {tokens["access_token"]}"}
         )
         assert resp.status_code in (200, 201)
+
+
+class TestMovieFavorites:
+    """Tests for movie favorites endpoints."""
+
+    async def test_add_favorite(
+            self,
+            client: AsyncClient,
+            db_session: AsyncSession
+    ) -> None:
+        """Tests adding a favorite movie."""
+        user = await create_test_user(db_session, email="test@favorite.com")
+        movie = await create_test_movie(db_session)
+        tokens = await login_test_user(client, user.email)
+        resp = await client.post(
+            f"/api/v1/movies/{movie.id}/favorites/",
+            headers={"Authorization": f"Bearer {tokens["access_token"]}"}
+        )
+        assert resp.status_code in (200, 201)
+
+    async def test_list_favorites(
+            self,
+            client: AsyncClient,
+            db_session: AsyncSession
+    ) -> None:
+        """Tests listing favorite movies."""
+        user = await create_test_user(db_session, email="test@favorite.com")
+        tokens = await login_test_user(client, user.email)
+        resp = await client.get(
+            "/api/v1/movies/favorites/",
+            headers={"Authorization": f"Bearer {tokens['access_token']}"}
+        )
+        assert resp.status_code == 200
