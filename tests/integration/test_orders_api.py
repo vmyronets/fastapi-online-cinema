@@ -62,3 +62,35 @@ class TestCreateOrder:
         """Test for impossible creating an order by unauthenticated user."""
         resp = await client.post("/api/v1/orders/")  # arbitrary request
         assert resp.status_code == 422
+
+
+class TestListOrders:
+    """Tests for order listing endpoint."""
+
+    async def test_list_orders(
+            self,
+            client: AsyncClient,
+            db_session: AsyncSession
+    ) -> None:
+        """Tests that a user can list orders."""
+        user = await create_test_user(db_session, email="test@listorders.com")
+        tokens = await login_test_user(client, user.email)
+        resp = await client.get(
+            "/api/v1/orders/",
+            headers={"Authorization": f"Bearer {tokens['access_token']}"}
+        )
+        assert resp.status_code == 200
+
+    async def test_list_orders_pagination(
+            self,
+            client: AsyncClient,
+            db_session: AsyncSession
+    ) -> None:
+        """Tests that a user can list orders with pagination."""
+        user = await create_test_user(db_session, email="test@listorders.com")
+        tokens = await login_test_user(client, user.email)
+        resp = await client.get(
+            "/api/v1/orders/?page=1&per_page=5",
+            headers={"Authorization": f"Bearer {tokens['access_token']}"}
+        )
+        assert resp.status_code == 200
