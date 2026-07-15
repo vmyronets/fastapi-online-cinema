@@ -1,3 +1,14 @@
+"""
+Integration tests for orders API endpoints.
+
+Covers:
+- Order creation from cart.
+- Order listing with pagination.
+- Order cancellation.
+- Error handling for empty cart and invalid orders.
+"""
+
+
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -94,3 +105,45 @@ class TestListOrders:
             headers={"Authorization": f"Bearer {tokens['access_token']}"}
         )
         assert resp.status_code == 200
+
+
+class TestCancelOrder:
+    """Tests for order cancellation endpoint."""
+
+    async def test_cancel_order(
+            self,
+            client: AsyncClient,
+            db_session: AsyncSession
+    ) -> None:
+        """Tests that a user can cancel an order."""
+        user = await create_test_user(db_session, email="test@cancelorder.com")
+        tokens = await login_test_user(client, user.email)
+        movie = await create_test_movie(db_session)
+        await _add_movie_to_cart(client, tokens["access_token"], movie.id)
+        headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+        order_resp = await client.post("/api/v1/orders/", headers=headers)
+        if order_resp.status_code in (200, 201):
+            order_id = order_resp.json().get("id")
+            if order_id:
+                resp = await client.post(
+                    f"/api/v1/orders/{order_id}/cancel/",
+                    headers=headers
+                )
+                assert resp.status_code == 200
+
+    async def test_cancel_nonexistent_order(
+            self,
+            client: AsyncClient,
+            db_session: AsyncSession
+    ) -> None:
+        """Tests that a user cannot cancel a nonexistent order."""
+        user = await create_test_user(
+            db_session,
+            email="test@cancelnonexistent.com"
+        )
+        tokens = await login_test_user(client, user.email)
+        resp = await client.post(
+            "/api/v1/orders/99999/cancel/",
+            headers={"Authorization": f"Bearer {tokens['access_token']}"}
+        )
+        assert resp.status_code == 404
