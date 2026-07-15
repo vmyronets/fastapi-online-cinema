@@ -109,3 +109,23 @@ class TestMovieComments:
         movie = await create_test_movie(db_session)
         resp = await client.get(f"/api/v1/movies/{movie.id}/comments/")
         assert resp.status_code == 200
+
+
+class TestMovieRatings:
+    """Tests for movie rating endpoint."""
+
+    async def test_rate_movie(
+            self,
+            client: AsyncClient,
+            db_session: AsyncSession
+    ) -> None:
+        """Checks that rating a movie returns a 200 or 201 status code."""
+        user = await create_test_user(db_session)
+        tokens = await login_test_user(client)
+        movie = await create_test_movie(db_session)
+        resp = await client.post(
+            f"/api/v1/movies/{movie.id}/ratings/",
+            json={"score": 8},
+            headers={"Authorization": f"Bearer {tokens["access_token"]}"}
+        )
+        assert resp.status_code in (200, 201)
