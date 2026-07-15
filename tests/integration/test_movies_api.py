@@ -1,3 +1,14 @@
+"""
+Integration tests for movies API endpoints.
+
+Covers:
+- Movie listing and detail retrieval with database interaction.
+- Genre listing.
+- Authentication-required endpoints (comments, ratings, favorites, likes).
+- Error handling for non-existent resources.
+"""
+
+
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -162,3 +173,23 @@ class TestMovieFavorites:
             headers={"Authorization": f"Bearer {tokens['access_token']}"}
         )
         assert resp.status_code == 200
+
+
+class TestMovieLikes:
+    """Tests for movie like/dislike endpoint."""
+
+    async def test_like_movie(
+            self,
+            client: AsyncClient,
+            db_session: AsyncSession
+    ) -> None:
+        """Tests liking a movie."""
+        user = await create_test_user(db_session, email="test@like.com")
+        tokens = await login_test_user(client, user.email)
+        movie = await create_test_movie(db_session)
+        resp = await client.post(
+            f"/api/v1/movies/{movie.id}/likes/",
+            json={"is_like": True},
+            headers={"Authorization": f"Bearer {tokens['access_token']}"}
+        )
+        assert resp.status_code in (200, 201)
