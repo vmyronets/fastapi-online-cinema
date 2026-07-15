@@ -1,3 +1,13 @@
+"""
+Integration tests for cart API endpoints.
+
+Covers:
+- Cart viewing, adding/removing items, and clearing.
+- Authentication requirements.
+- Duplicate item prevention.
+"""
+
+
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -130,3 +140,25 @@ class TestCartRemoveItem:
             headers={"Authorization": f"Bearer {tokens['access_token']}"}
         )
         assert resp.status_code in (400, 404)
+
+
+class TestCartClear:
+    """Tests for clearing cart."""
+
+    async def test_clear_cart(
+            self,
+            client: AsyncClient,
+            db_session: AsyncSession
+    ) -> None:
+        """Test clearing cart."""
+        user = await create_test_user(db_session, email="test@clearcart.com")
+        tokens = await login_test_user(client, user.email)
+        headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+        movie = await create_test_movie(db_session)
+        await client.post(
+            "/api/v1/cart/items/",
+            json={"movie_id": movie.id},
+            headers=headers
+        )
+        resp = await client.delete("/api/v1/cart/clear/", headers=headers)
+        assert resp.status_code == 200
