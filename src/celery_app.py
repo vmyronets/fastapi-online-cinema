@@ -5,6 +5,8 @@ Sets up the Celery app with Redis as broker, registers periodic
 tasks (celery-beat) for cleaning up expired activation tokens.
 """
 
+from src.database import models  # noqa: F401, F403
+
 from celery import Celery
 from celery.schedules import crontab
 
@@ -14,7 +16,7 @@ from src.config.settings import settings
 celery = Celery(
     "cinema",
     broker=settings.REDIS_URL,
-    backend=settings.REDIS_URL,
+    backend=settings.REDIS_URL
 )
 
 celery.conf.update(
@@ -22,18 +24,18 @@ celery.conf.update(
     accept_content=["json"],
     result_serializer="json",
     timezone="UTC",
-    enable_utc=True,
+    enable_utc=True
 )
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Periodic tasks (celery-beat schedule)
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 
 celery.conf.beat_schedule = {
     "cleanup-expired-activation-tokens": {
         "task": "src.celery_app.cleanup_expired_activation_tokens",
-        "schedule": crontab(minute=0, hour="*/1"),  # Run every hour.
-    },
+        "schedule": crontab(minute=0, hour="*/1")  # Run every hour.
+    }
 }
 
 
