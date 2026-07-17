@@ -21,5 +21,5 @@ __all__ = [
     "UserProfileModel",
     "ActivationTokenModel",
     "PasswordResetTokenModel",
-    "RefreshTokenModel",
+    "RefreshTokenModel"
 ]

@@ -8,7 +8,11 @@ dependency (`get_db`) that yields an async session per request.
 
 from typing import AsyncGenerator
 
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    create_async_engine,
+    async_sessionmaker
+)
 from sqlalchemy.orm import DeclarativeBase
 
 from src.config.settings import settings
@@ -18,14 +22,14 @@ from src.config.settings import settings
 async_engine = create_async_engine(
     settings.DATABASE_URL,
     echo=settings.DEBUG,
-    future=True,
+    future=True
 )
 
 # Async session factory bound to the engine.
 AsyncSessionLocal = async_sessionmaker(
     bind=async_engine,
     class_=AsyncSession,
-    expire_on_commit=False,
+    expire_on_commit=False
 )
 
 
