@@ -881,10 +881,13 @@ async def password_reset_form_get(token: str):
         <meta charset="utf-8">
         <title>Setting a New Password</title>
         <style>
-            body {{ font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f4f4f9; }}
-            .card {{ background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 300px; text-align: center; }}
+            body {{ font-family: sans-serif; display: flex; justify-content:
+            center; align-items: center; height: 100vh; background-color: #f4f4f9; }}
+            .card {{ background: #fff; padding: 30px; border-radius: 8px;
+             box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 300px; text-align: center; }}
             input {{ width: 90%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; }}
-            button {{ width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }}
+            button {{ width: 100%; padding: 10px; background: #007bff; color:
+            white; border: none; border-radius: 4px; cursor: pointer; }}
             button:hover {{ background: #0056b3; }}
         </style>
     </head>

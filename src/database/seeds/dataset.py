@@ -108,8 +108,8 @@ def _build_movie_seed(row) -> MovieSeed:
         # Dataset has no duration.
         # Generate realistic demo duration.
         time=RNG.randint(80, 180),
-        imdb = round(float(row.score) / 10, 1),
-        votes=RNG.randint(5_000,900_000),
+        imdb=round(float(row.score) / 10, 1),
+        votes=RNG.randint(5_000, 900_000),
         meta_score=meta_score,
         gross=gross,
         description=row.overview,

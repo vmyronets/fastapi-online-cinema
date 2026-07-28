@@ -132,8 +132,8 @@ async def send_payment_confirmation_email(
       <body style="font-family: Arial, sans-serif; color: #333;">
         <h2 style="color: #4CAF50;">Payment Successful! 🎉</h2>
         <p>Hello,</p>
-        <p>Thank you for your order. We are pleased to confirm that your payment of 
-           <strong>${formatted_amount}</strong> for Order <strong>#{order_id}</strong> 
+        <p>Thank you for your order. We are pleased to confirm that your payment of
+           <strong>${formatted_amount}</strong> for Order <strong>#{order_id}</strong>
            was successfully processed.
         </p>
         <br>
@@ -534,7 +534,7 @@ async def payment_success_page(session_id: str):
     return f"""
     <html>
         <body style="font-family: Arial; display: flex; flex-direction:
-         column; align-items: center; justify-content: center; 
+         column; align-items: center; justify-content: center;
          height: 100vh; background-color: #f0fdf4;">
             <h1 style="color: #16a34a;">Payment Successful! 🎉</h1>
             <p>Your Stripe Session ID is: <b>{session_id}</b></p>
@@ -554,7 +554,7 @@ async def payment_cancel_page():
     return """
     <html>
         <body style="font-family: Arial; display: flex; flex-direction: column;
-         align-items: center; justify-content: center; height: 100vh; 
+         align-items: center; justify-content: center; height: 100vh;
          background-color: #fef2f2;">
             <h1 style="color: #dc2626;">Payment failed or was canceled ❌.
                     Please try another payment method or another card.</h1>

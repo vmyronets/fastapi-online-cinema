@@ -194,8 +194,8 @@ async def add_to_cart(
     # Verify movie exists.
     movie = (
         await db.execute(
-                select(MovieModel).where(MovieModel.id == data.movie_id))
-            ).scalars().first()
+            select(MovieModel).where(MovieModel.id == data.movie_id))
+    ).scalars().first()
     if not movie:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
