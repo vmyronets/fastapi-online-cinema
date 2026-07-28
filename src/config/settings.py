@@ -7,7 +7,8 @@ centralized here for easy access throughout the application.
 """
 import os
 
-from pydantic_settings import BaseSettings
+from pydantic import computed_field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -44,55 +45,59 @@ class Settings(BaseSettings):
     """
 
     # Database
-    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "test_user")
-    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "test_password")
-    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "test_db")
-    POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "localhost")
-    POSTGRES_PORT: int = os.getenv("POSTGRES_PORT", 5432)
-    DATABASE_URL: str = (
-        f"postgresql+asyncpg://{POSTGRES_USER}"
-        f":{POSTGRES_PASSWORD}@{POSTGRES_HOST}"
-        f":{POSTGRES_PORT}/{POSTGRES_DB}"
-    )
+    POSTGRES_USER: str = "test_user"
+    POSTGRES_PASSWORD: str = "test_password"
+    POSTGRES_DB: str = "test_db"
+    POSTGRES_HOST: str = "localhost"
+    POSTGRES_PORT: int = 5432
+
+    @computed_field
+    @property
+    def DATABASE_URL(self) -> str:
+        return (
+            f"postgresql+asyncpg://{self.POSTGRES_USER}:"
+            f"{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:"
+            f"{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        )
 
     # JWT
-    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "secret_key")
-    JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30)
-    REFRESH_TOKEN_EXPIRE_DAYS: int = os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 7)
+    JWT_SECRET_KEY: str = "secret_key"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # Redis
-    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    REDIS_URL: str = "redis://localhost:6379/0"
 
     # S3 / MinIO
-    S3_ENDPOINT_URL: str = os.getenv("S3_ENDPOINT_URL", "http://localhost:9000")
-    S3_ACCESS_KEY: str = os.getenv("S3_ACCESS_KEY", "minioadmin")
-    S3_SECRET_KEY: str = os.getenv("S3_SECRET_KEY", "minioadmin")
-    S3_BUCKET_NAME: str = os.getenv("S3_BUCKET_NAME", "cinema-bucket")
+    S3_ENDPOINT_URL: str = "http://localhost:9000"
+    S3_ACCESS_KEY: str = "minioadmin"
+    S3_SECRET_KEY: str = "minioadmin"
+    S3_BUCKET_NAME: str = "cinema-bucket"
 
     # Stripe
-    STRIPE_SECRET_KEY: str = os.getenv("STRIPE_SECRET_KEY", "sk_test_placeholder")
-    STRIPE_WEBHOOK_SECRET: str = os.getenv("STRIPE_WEBHOOK_SECRET", "whsec_placeholder")
+    STRIPE_SECRET_KEY: str = "sk_test_placeholder"
+    STRIPE_WEBHOOK_SECRET: str = "whsec_placeholder"
 
     # Email / SMTP
-    SMTP_HOST: str = os.getenv("SMTP_HOST", "smtp.gmail.com")
-    SMTP_PORT: int = os.getenv("SMTP_PORT", 587)
-    SMTP_USER: str = os.getenv("SMTP_USER", "")
-    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
-    EMAIL_FROM: str = os.getenv("EMAIL_FROM", "noreply@cinema.com")
-    SMTP_USE_TLS: bool = os.getenv("SMTP_USE_TLS", True)
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    EMAIL_FROM: str = "noreply@cinema.com"
+    SMTP_USE_TLS: bool = True
 
     # Application
-    APP_HOST: str = os.getenv("APP_HOST", "0.0.0.0")
-    APP_PORT: int = os.getenv("APP_PORT", 8000)
-    APP_BASE_URL: str = os.getenv("APP_BASE_URL", "http://localhost:8000")
-    DEBUG: bool = os.getenv("DEBUG", True)
+    APP_HOST: str = "0.0.0.0"
+    APP_PORT: int = 8000
+    APP_BASE_URL: str = "http://localhost:8000"
+    DEBUG: bool = True
 
-    model_config = {
-        "env_file": ".env",
-        "env_file_encoding": "utf-8",
-        "extra": "ignore",
-    }
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
 
 
 # Singleton settings instance used throughout the application.
