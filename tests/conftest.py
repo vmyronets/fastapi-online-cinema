@@ -54,7 +54,8 @@ def compile_uuid_as_string_for_sqlite(_type, _compiler, **_kw):
 # ---------------------------------------------------------------------------
 # Async SQLite engine & session for tests
 # ---------------------------------------------------------------------------
-TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
+# TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
+TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 test_engine = create_async_engine(TEST_DATABASE_URL, echo=False)
 TestSessionLocal = async_sessionmaker(
