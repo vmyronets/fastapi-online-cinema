@@ -1,0 +1,31 @@
+# Docker Compose configuration for the test environment.
+#
+# Builds the application using the "test" stage from the multi-stage
+# Dockerfile and runs the complete pytest suite with coverage.
+#
+# No external services are required because the test suite uses:
+# - SQLite
+# - Mock S3
+# - Mock email sender
+
+services:
+
+  tests:
+
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: test
+
+    working_dir: /app
+
+    volumes:
+      - .:/app
+
+    command: >
+      pytest
+      -v
+      --cov=src
+      --cov-report=term-missing
+      --cov-report=html
+      --cov-report=xml
