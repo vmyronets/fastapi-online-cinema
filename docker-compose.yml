@@ -1,146 +1,246 @@
+#services:
+#  # ----------------------------------------------
+#  # PostgreSQL 17 Database
+#  # ----------------------------------------------
+#  db:
+#    image: postgres:17
+#    container_name: cinema_db
+#    restart: unless-stopped
+#    environment:
+#      POSTGRES_USER: ${POSTGRES_USER:-cinema_user}
+#      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cinema_password}
+#      POSTGRES_DB: ${POSTGRES_DB:-cinema_db}
+#    ports:
+#      - "5432:5432"
+#    volumes:
+#      - postgres_data:/var/lib/postgresql/data
+#    healthcheck:
+#      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cinema_user} -d ${POSTGRES_DB:-cinema_db}"]
+#      interval: 5s
+#      timeout: 5s
+#      retries: 10
+#      start_period: 10s
+#
+#  # ----------------------------------------------
+#  # Redis (Celery broker & caching)
+#  # ----------------------------------------------
+#  redis:
+#    image: redis:7-alpine
+#    container_name: cinema_redis
+#    restart: unless-stopped
+#    ports:
+#      - "6379:6379"
+#    healthcheck:
+#      test: ["CMD", "redis-cli", "ping"]
+#      interval: 5s
+#      timeout: 5s
+#      retries: 10
+#
+#  # ----------------------------------------------
+#  # MinIO (S3-compatible object storage)
+#  # ----------------------------------------------
+#  minio:
+#    image: minio/minio:latest
+#    container_name: cinema_minio
+#    restart: unless-stopped
+#    environment:
+#      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
+#      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin}
+#    command: server /data --console-address ":9001"
+#    ports:
+#      - "9000:9000"
+#      - "9001:9001"
+#    volumes:
+#      - minio_data:/data
+#    healthcheck:
+#      test: ["CMD", "mc", "ready", "local"]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 5
+#      start_period: 10s
+#
+#  # ----------------------------------------------
+#  # MinIO bucket initialization
+#  # ----------------------------------------------
+#  minio-init:
+#    image: minio/mc:latest
+#    container_name: cinema_minio_init
+#    depends_on:
+#      minio:
+#        condition: service_healthy
+#    entrypoint: >
+#      /bin/sh -c "
+#      mc alias set local http://minio:9000 ${S3_ACCESS_KEY:-minioadmin} ${S3_SECRET_KEY:-minioadmin};
+#      mc mb local/${S3_BUCKET_NAME:-cinema-bucket} --ignore-existing;
+#      mc anonymous set public local/${S3_BUCKET_NAME:-cinema-bucket};
+#      exit 0;
+#      "
+#
+#  # ----------------------------------------------
+#  # FastAPI Application
+#  # ----------------------------------------------
+#  app:
+#    build:
+#      context: .
+#      dockerfile: Dockerfile
+#      target: development
+#    container_name: cinema_app
+#    restart: unless-stopped
+#    env_file:
+#      - .env
+#    ports:
+#      - "${APP_PORT:-8000}:8000"
+#    depends_on:
+#      db:
+#        condition: service_healthy
+#      redis:
+#        condition: service_healthy
+#      minio-init:
+#        condition: service_completed_successfully
+#    command: >
+#      sh -c "
+#      alembic upgrade head &&
+#      python -m src.database.seeds.seed &&
+#      uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+#      "
+#
+#  # ----------------------------------------------
+#  # Celery Worker
+#  # ----------------------------------------------
+#  celery-worker:
+#    build:
+#      context: .
+#      dockerfile: Dockerfile
+#      target: development
+#    container_name: cinema_celery_worker
+#    restart: unless-stopped
+#    env_file:
+#      - .env
+#    depends_on:
+#      db:
+#        condition: service_healthy
+#      redis:
+#        condition: service_healthy
+#    command: celery -A src.celery_app worker --loglevel=info
+#
+#  # ----------------------------------------------
+#  # Celery Beat (periodic tasks)
+#  # ----------------------------------------------
+#  celery-beat:
+#    build:
+#      context: .
+#      dockerfile: Dockerfile
+#      target: development
+#    container_name: cinema_celery_beat
+#    restart: unless-stopped
+#    env_file:
+#      - .env
+#    depends_on:
+#      db:
+#        condition: service_healthy
+#      redis:
+#        condition: service_healthy
+#    command: celery -A src.celery_app beat --loglevel=info
+#
+#volumes:
+#  postgres_data:
+#  minio_data:
+
+
+
+
+# =============================================================================
+# Shared infrastructure for all environments.
+#
+# This file defines only infrastructure services that are shared between
+# development, testing and future production environments.
+#
+# Application containers are defined in:
+#   - docker-compose-dev.yml
+#   - docker-compose-test.yml
+# =============================================================================
+
 services:
-  # ----------------------------------------------
-  # PostgreSQL 17 Database
-  # ----------------------------------------------
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL database
+  # ---------------------------------------------------------------------------
   db:
     image: postgres:17
     container_name: cinema_db
+
     restart: unless-stopped
+
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-cinema_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cinema_password}
-      POSTGRES_DB: ${POSTGRES_DB:-cinema_db}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+
     ports:
       - "5432:5432"
+
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cinema_user} -d ${POSTGRES_DB:-cinema_db}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
       start_period: 10s
 
-  # ----------------------------------------------
+  # ---------------------------------------------------------------------------
   # Redis (Celery broker & caching)
-  # ----------------------------------------------
+  # ---------------------------------------------------------------------------
   redis:
     image: redis:7-alpine
+
     container_name: cinema_redis
+
     restart: unless-stopped
+
     ports:
       - "6379:6379"
+
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 5s
       retries: 10
 
-  # ----------------------------------------------
-  # MinIO (S3-compatible object storage)
-  # ----------------------------------------------
+  # ---------------------------------------------------------------------------
+  # MinIO object storage (S3-compatible object storage)
+  # ---------------------------------------------------------------------------
   minio:
     image: minio/minio:latest
+
     container_name: cinema_minio
+
     restart: unless-stopped
+
     environment:
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin}
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
+
     command: server /data --console-address ":9001"
+
     ports:
       - "9000:9000"
       - "9001:9001"
+
     volumes:
       - minio_data:/data
+
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
-
-  # ----------------------------------------------
-  # MinIO bucket initialization
-  # ----------------------------------------------
-  minio-init:
-    image: minio/mc:latest
-    container_name: cinema_minio_init
-    depends_on:
-      minio:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      mc alias set local http://minio:9000 ${S3_ACCESS_KEY:-minioadmin} ${S3_SECRET_KEY:-minioadmin};
-      mc mb local/${S3_BUCKET_NAME:-cinema-bucket} --ignore-existing;
-      mc anonymous set public local/${S3_BUCKET_NAME:-cinema-bucket};
-      exit 0;
-      "
-
-  # ----------------------------------------------
-  # FastAPI Application
-  # ----------------------------------------------
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: development
-    container_name: cinema_app
-    restart: unless-stopped
-    env_file:
-      - .env
-    ports:
-      - "${APP_PORT:-8000}:8000"
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      minio-init:
-        condition: service_completed_successfully
-    command: >
-      sh -c "
-      alembic upgrade head &&
-      python -m src.database.seeds.seed &&
-      uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
-      "
-
-  # ----------------------------------------------
-  # Celery Worker
-  # ----------------------------------------------
-  celery-worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: development
-    container_name: cinema_celery_worker
-    restart: unless-stopped
-    env_file:
-      - .env
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    command: celery -A src.celery_app worker --loglevel=info
-
-  # ----------------------------------------------
-  # Celery Beat (periodic tasks)
-  # ----------------------------------------------
-  celery-beat:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: development
-    container_name: cinema_celery_beat
-    restart: unless-stopped
-    env_file:
-      - .env
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    command: celery -A src.celery_app beat --loglevel=info
 
 volumes:
   postgres_data:

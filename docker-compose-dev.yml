@@ -1,0 +1,111 @@
+# Development environment.
+#
+# This file defines application services used during local development.
+# Infrastructure services (PostgreSQL, Redis, MinIO) are defined in
+# docker-compose.yml.
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # FastAPI application
+  # ---------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      target: development
+
+    container_name: cinema_app
+
+    env_file:
+      - .env
+
+    volumes:
+      - .:/app
+
+    ports:
+      - "${APP_PORT}:8000"
+
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+
+    command: /app/docker/entrypoint.dev.sh
+
+  # ---------------------------------------------------------------------------
+  # Create required MinIO bucket
+  # ---------------------------------------------------------------------------
+  minio-init:
+    image: minio/mc:latest
+
+    container_name: cinema_minio_init
+
+    restart: "no"
+
+    depends_on:
+      minio:
+        condition: service_healthy
+
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${S3_ACCESS_KEY} ${S3_SECRET_KEY};
+
+      mc mb local/${S3_BUCKET_NAME} --ignore-existing;
+
+      mc anonymous set public local/${S3_BUCKET_NAME};
+
+      exit 0;
+      "
+
+  # ---------------------------------------------------------------------------
+  # Celery worker
+  # ---------------------------------------------------------------------------
+  celery-worker:
+    build:
+      context: .
+      target: development
+
+    container_name: cinema_celery_worker
+
+    env_file:
+      - .env
+
+    volumes:
+      - .:/app
+
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    command: celery -A src.celery_app worker --loglevel=info
+
+  # ---------------------------------------------------------------------------
+  # Celery Beat scheduler (periodic tasks)
+  # ---------------------------------------------------------------------------
+  celery-beat:
+    build:
+      context: .
+      target: development
+
+    container_name: cinema_celery_beat
+
+    env_file:
+      - .env
+
+    volumes:
+      - .:/app
+
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    command: celery -A src.celery_app beat --loglevel=info

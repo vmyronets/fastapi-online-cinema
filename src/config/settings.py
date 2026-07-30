@@ -71,8 +71,8 @@ class Settings(BaseSettings):
 
     # S3 / MinIO
     S3_ENDPOINT_URL: str = "http://localhost:9000"
-    S3_ACCESS_KEY: str = "minioadmin"
-    S3_SECRET_KEY: str = "minioadmin"
+    S3_ACCESS_KEY: str = ""
+    S3_SECRET_KEY: str = ""
     S3_BUCKET_NAME: str = "cinema-bucket"
 
     # Stripe
