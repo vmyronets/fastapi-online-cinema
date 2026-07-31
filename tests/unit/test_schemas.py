@@ -1,0 +1,122 @@
+"""
+Unit tests for Pydantic schema validation.
+
+Covers:
+- Data validation logic for registration, login, and activation schemas.
+- Business rules enforced by model validators.
+"""
+
+
+import pytest
+from pydantic import ValidationError
+
+from src.accounts.models import UserGroupEnum
+from src.accounts.schemas import (
+    UserRegisterSchema,
+    LoginSchema,
+    ActivationRequestSchema,
+    ChangePasswordSchema,
+    AdminUserUpdateSchema
+)
+from src.cart.schemas import CartItemAddSchema
+
+
+class TestUserRegisterSchema:
+    """
+    Tests for UserRegisterSchema validation.
+    Check if the schema validates valid and invalid inputs correctly.
+    """
+
+    def test_valid_registration(self):
+        schema = UserRegisterSchema(
+            email="user@example.com",
+            password="StrongP@ss1"
+        )
+        assert schema.email == "user@example.com"
+
+    def test_invalid_email(self):
+        with pytest.raises(ValidationError):
+            UserRegisterSchema(email="not-an-email", password="StrongP@ss1")
+
+    def test_password_too_short(self):
+        with pytest.raises(ValidationError):
+            UserRegisterSchema(email="user@example.com", password="Sh1!")
+
+    def test_password_too_long(self):
+        with pytest.raises(ValidationError):
+            UserRegisterSchema(email="user@example.com", password="A" * 129)
+
+
+class TestLoginSchema:
+    """Tests for LoginSchema validation."""
+
+    def test_valid_login(self):
+        schema = LoginSchema(email="user@example.com", password="password")
+        assert schema.email == "user@example.com"
+
+    def test_invalid_email(self):
+        with pytest.raises(ValidationError):
+            LoginSchema(email="bad", password="password")
+
+
+class TestActivationRequestSchema:
+    """Tests for ActivationRequestSchema validation."""
+
+    def test_with_token(self):
+        schema = ActivationRequestSchema(token="abc123")
+        assert schema.token == "abc123"
+
+    def test_with_email(self):
+        schema = ActivationRequestSchema(email="user@example.com")
+        assert schema.email == "user@example.com"
+
+    def test_neither_provided(self):
+        with pytest.raises(ValidationError):
+            ActivationRequestSchema()
+
+
+class TestChangePasswordSchema:
+    """Tests for ChangePasswordSchema validation."""
+
+    def test_valid(self):
+        schema = ChangePasswordSchema(
+            old_password="OldPass1!",
+            new_password="NewPass1!"
+        )
+        assert schema.new_password == "NewPass1!"
+
+    def test_new_password_too_short(self):
+        with pytest.raises(ValidationError):
+            ChangePasswordSchema(
+                old_password="OldPass1!",
+                new_password="short"
+            )
+
+
+class TestCartItemAddSchema:
+    """Tests for CartItemAddSchema validation."""
+
+    def test_valid(self):
+        schema = CartItemAddSchema(movie_id=1)
+        assert schema.movie_id == 1
+
+    def test_missing_movie_id(self):
+        with pytest.raises(ValidationError):
+            CartItemAddSchema(movie_id=None)
+
+
+class TestAdminUserUpdateSchema:
+    """Tests for AdminUserUpdateSchema validation."""
+
+    def test_all_none(self):
+        schema = AdminUserUpdateSchema()
+        assert schema.is_active is None
+        assert schema.group_name is None
+
+    def test_set_active(self):
+        schema = AdminUserUpdateSchema(is_active=True)
+        assert schema.is_active is True
+
+    def test_set_group_name(self):
+        schema = AdminUserUpdateSchema(group_name=UserGroupEnum.ADMIN)
+        assert schema.group_name == "ADMIN"

@@ -1,0 +1,26 @@
+# Test environment.
+#
+# This file defines the test runner container.
+# Infrastructure services are defined in docker-compose.yml.
+# Builds the application using the "test" stage from the multi-stage
+# Dockerfile and runs the complete pytest suite with coverage.
+#
+# No external services are required because the test suite uses:
+# - SQLite
+# - Mock S3
+# - Mock email sender
+
+services:
+
+  # Test runner
+  tests:
+    build:
+      context: .
+      target: test
+
+    container_name: cinema_tests
+
+    volumes:
+      - .:/app
+
+    command: /app/docker/entrypoint.test.sh

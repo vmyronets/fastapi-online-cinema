@@ -7,7 +7,7 @@ readme = "README.md"
 package-mode = false
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.12"
 fastapi = {extras = ["standard"], version = "^0.115.0"}
 uvicorn = {extras = ["standard"], version = "^0.34.0"}
 sqlalchemy = {extras = ["asyncio"], version = "^2.0.36"}
@@ -15,10 +15,32 @@ asyncpg = "^0.30.0"
 alembic = "^1.14.0"
 pydantic = {extras = ["email"], version = "^2.0.0"}
 pydantic-settings = "^2.7.0"
+python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+bcrypt = "4.0.1"
+celery = {extras = ["redis"], version = "^5.3.0"}
+redis = "^5.0.0"
+passlib = "^1.7.4"
+boto3 = "^1.34.0"
+aioboto3 = "^13.4.0"
+stripe = "^15.3.0"
+python-multipart = "^0.0.32"
+emails = "^1.1.2"
+jinja2 = "^3.1.6"
+aiosmtplib = "^5.1.2"
+pandas = "^3.0.3"
+flake8 = "^7.3.0"
 
+[tool.poetry.group.dev.dependencies]
+pytest = "^9.1.1"
+pytest-asyncio = "^1.4.0"
+pytest-cov = "^7.1.0"
+httpx = "^0.28.1"
+aiosqlite = "^0.22.1"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
-
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
