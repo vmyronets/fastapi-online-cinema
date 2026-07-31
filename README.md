@@ -1,15 +1,21 @@
 
 ---
 
-# FastAPI Online Cinema API
+# 🎬 FastAPI Online Cinema API
 
-A production-style REST API for an online cinema platform built with **FastAPI**.
+![Python](https://img.shields.io/badge/Python-3.12-blue?style=for-the-badge&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker)
+![Celery](https://img.shields.io/badge/Celery-37814A?style=for-the-badge&logo=celery&logoColor=white)
+
+A production-ready REST API for an online cinema platform built with **FastAPI**.
 
 The project demonstrates modern backend architecture, asynchronous programming, JWT authentication, role-based authorization, payments, background tasks, object storage, automated database seeding, and comprehensive testing.
 
 ---
 
-## Features
+## ✨ Features
 
 * JWT authentication (Access & Refresh tokens)
 * User registration and email activation
@@ -83,7 +89,7 @@ The project demonstrates modern backend architecture, asynchronous programming, 
 
 ---
 
-## Getting Started
+## 🚀 Getting Started
 
 ### Prerequisites
 
@@ -91,38 +97,49 @@ The project demonstrates modern backend architecture, asynchronous programming, 
 - **Docker & Docker Compose** (for containerized setup)
 - **Poetry** (for local development)
 
-## Running the Application
-
-**1. Clone the repository:**
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/vmyronets/fastapi-online-cinema
+
+```
+Go to the project directory:
+```bash
 cd fastapi-online-cinema
+
 ```
 
-**2. Create an `.env` file from the template:**
+### 2. Configure the Environment
+
+Create an `.env` file from the provided template:
 
 ```bash
 cp .env.sample .env
+
 ```
 
-Edit `.env` and update host addresses for local access:
-```
+Ensure the host addresses in your `.env` are set correctly for local access:
+
+```ini
 POSTGRES_HOST=localhost
 DATABASE_URL=postgresql+asyncpg://cinema_user:cinema_password@localhost:5432/cinema_db
 REDIS_URL=redis://localhost:6379/0
 S3_ENDPOINT_URL=http://localhost:9000
+
 ```
 
 ---
 
-**3. Start development environment:**
+### 3. Start the Development Environment
+
+Boot up the infrastructure and API using Docker Compose:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose-dev.yml up --build
+
 ```
 
-This starts:
+💡This starts:
 - **PostgreSQL 17** — database (with health check)
 - **Redis** — Celery broker (with health check)
 - **MinIO** — S3-compatible storage (with auto bucket creation)
@@ -130,153 +147,111 @@ This starts:
 - **Celery worker** — background task processing
 - **Celery beat** — periodic task scheduler
 
-**4. Access the application:**
+It will also automatically apply Alembic migrations, create the default MinIO storage bucket, and safely seed the database
+with default roles, categories, and administrator accounts. Finally, the FastAPI server boots with hot-reload enabled.
 
-- API: [http://localhost:8000](http://localhost:8000)
-- Swagger Docs: [http://localhost:8000/docs](http://localhost:8000/docs)
-- ReDoc: [http://localhost:8000/redoc](http://localhost:8000/redoc)
-- MinIO Console: [http://localhost:9001](http://localhost:9001) (minioadmin/minioadmin)
+### 4. Access the Services
 
-**5. Stop all services:**
+Once running, you can access the following interfaces:
+
+* **API Base URL:** [http://localhost:8000](http://localhost:8000)
+* **Swagger UI (Interactive Docs):** [http://localhost:8000/docs](http://localhost:8000/docs)
+* **ReDoc:** [http://localhost:8000/redoc](http://localhost:8000/redoc)
+* **MinIO Console:** [http://localhost:9001](http://localhost:9001) *(Default credentials: `minioadmin` / `minioadmin`)*
+
+### 5. Stopping the Environment
+
+To gracefully stop all services:
 
 ```bash
 docker compose down
-# To also remove volumes (database data):
-docker compose down -v
+
 ```
+
+*(Append `-v` to the command if you want to completely wipe the database volumes and start fresh next time).*
 
 ---
 
-The application will:
+## 👥 Accounts & Authorization
 
-* wait until PostgreSQL is ready
-* apply Alembic migrations
-* seed the database
-* create the default MinIO bucket
-* start FastAPI with hot reload
+The automatic seeding process provisions initial administrative accounts. Passwords and specific emails are configured in `./src/database/seeds/constants.py`.
 
-You can find the API documentation at the link:
+### Roles and Permissions
 
-```
-http://localhost:8000/docs
-```
+| Role | Capabilities |
+| --- | --- |
+| **User** | Browse catalog, manage cart & orders, rate/comment/like movies, manage personal profile. |
+| **Moderator** | *All User permissions* + CRUD operations for movies, genres, actors, and viewing sales metrics. |
+| **Admin** | *All Moderator permissions* + user management, changing user groups, and account activation. |
+
 
 ---
 
-## Running Tests
+## 🧪 Testing
 
-The test suite uses:
+The project includes a comprehensive suite of unit, integration, and end-to-end API tests.
+Tests run in isolation using **SQLite**, a mocked S3 client, and mocked email dispatchers, meaning no external network services are required.
 
-* SQLite
-* mocked email sender
-* mocked S3 client
-
-No external services are required.
-
-Run:
+To run the test suite and generate a coverage report:
 
 ```bash
 docker compose -f docker-compose-test.yml run --rm tests
-```
-
-Coverage reports:
 
 ```
-htmlcov/
-coverage.xml
-```
+
+> Coverage reports are automatically generated in the `htmlcov/` directory and `coverage.xml`.
 
 ---
 
-## Default Accounts
+## 💻 Useful Commands
 
-The seed process automatically creates administrator accounts.
+Here are some helpful shortcuts for common development tasks:
 
-| Role      | Email                                             |
-|-----------|---------------------------------------------------|
-| Admin     | configured in `./src/database/seeds/constants.py` |
-| Moderator | configured in `./src/database/seeds/constants.py` |
-| User      | configured in `./src/database/seeds/constants.py` |
-
-Passwords are also loaded from `./src/database/seeds/constants.py`.
-
-## User Roles
-
-| Role          | Permissions                                                                   |
-|---------------|-------------------------------------------------------------------------------|
-| **User**      | Browse catalog, manage cart/orders, rate/comment/like movies, manage profile  |
-| **Moderator** | All User permissions + CRUD movies/genres/actors, view sales                  |
-| **Admin**     | All Moderator permissions + manage users, change groups, activate accounts    |
-
----
-
-## Database Seeding
-
-The development environment automatically seeds:
-
-* user groups
-* administrator accounts
-* certifications
-* genres
-* movies
-
-Running the seed multiple times is safe.
-
----
-
-## Useful Commands
-
-Rebuild containers
+**Rebuild Docker containers from scratch:**
 
 ```bash
 docker compose build --no-cache
+
 ```
 
-Open application container
+**Access the running application container:**
 
 ```bash
 docker compose exec app bash
+
 ```
 
-Open PostgreSQL
+**Access the PostgreSQL database directly:**
 
 ```bash
-docker compose exec db psql -U $POSTGRES_USER -d $POSTGRES_DB
+docker compose exec db psql -U $POSTGRES_USER -d$POSTGRES_DB
+
 ```
 
-Run Alembic migration
+**Run an Alembic migration manually:**
 
 ```bash
 docker compose exec app alembic upgrade head
+
 ```
 
 ---
 
-## Testing
+## 📈 Future Improvements
 
-The project includes:
-
-* unit tests
-* integration tests
-* end-to-end API tests
-
-Coverage is generated automatically with `pytest-cov`.
-
----
-
-## Future Improvements
-
-* GitHub Actions CI
-* Production deployment
-* Docker image publishing
-* Kubernetes manifests
-* Monitoring & logging
-* API rate limiting
+* [ ] GitHub Actions CI pipeline
+* [ ] Production deployment configurations
+* [ ] Docker image publishing to a registry
+* [ ] Kubernetes manifests (Helm charts)
+* [ ] Monitoring & Logging (Prometheus/Grafana)
+* [ ] API rate limiting implementation
 
 ---
 
-## License
+## 📄 License
 
 This project was created for educational purposes.
 
----
+```
+
+```
